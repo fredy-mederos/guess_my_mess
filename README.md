@@ -9,6 +9,7 @@ Share a link, play in the browser, no accounts and no server.
 
 **[Play now](https://fredy-mederos.github.io/guess_my_mess/)** · [How to play](#how-to-play) · [How it works](#how-it-works) · [Run it locally](#run-it-locally)
 
+[![Latest release](https://img.shields.io/github/v/release/fredy-mederos/guess_my_mess?label=version&color=f4c430)](https://github.com/fredy-mederos/guess_my_mess/releases/latest)
 [![Deploy to GitHub Pages](https://github.com/fredy-mederos/guess_my_mess/actions/workflows/deploy.yml/badge.svg)](https://github.com/fredy-mederos/guess_my_mess/actions/workflows/deploy.yml)
 
 <img src="docs/screenshots/desktop.jpg" alt="Desktop: guessing a rubber duck drawing, one blank per letter, while the chat fills with guesses" width="76%">&nbsp;
@@ -97,8 +98,13 @@ release every player loads the new version instead of a mix of cached old files 
 
 After a successful deploy, the release is tagged automatically (`v1.0.0`, `v1.1.0`, `v1.2.0`, …) and gets a
 [GitHub Release](https://github.com/fredy-mederos/guess_my_mess/releases) listing the commits since the previous
-version. Every release bumps the minor number; for a patch or major bump, run the workflow from the Actions tab
-on the `release` branch and pick the bump.
+version; the version badge at the top of this page follows it. Every release bumps the minor number. To pick the
+number yourself (a patch or a major), tag the commit and push the tag along with it:
+
+```bash
+git tag v2.0.0
+git push origin main:release v2.0.0
+```
 
 ## Customize
 

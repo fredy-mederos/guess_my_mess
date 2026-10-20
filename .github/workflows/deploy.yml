@@ -1,18 +1,13 @@
 # Publishes the game to GitHub Pages whenever the `release` branch moves, then tags the
 # release (v1.0.0, v1.1.0, ...) and creates a GitHub Release listing what changed.
 # Ship a new version with:  git push origin main:release
+# To pick the number yourself, push its tag along:  git tag v2.0.0 && git push origin main:release v2.0.0
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [release]
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Which part of the version to bump when tagging this release
-        type: choice
-        options: [minor, patch, major]
-        default: minor
+  workflow_dispatch: # re-run by hand from the Actions tab
 
 permissions:
   contents: read
@@ -69,25 +64,22 @@ jobs:
       - name: Tag and publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-          BUMP: ${{ inputs.bump || 'minor' }}
         run: |
-          # A re-run of an already released commit has nothing to do
-          existing=$(git tag --points-at HEAD --list 'v*' | head -1)
-          if [ -n "$existing" ]; then
-            echo "Already released as $existing"
+          # The version is the tag pushed along with the commit, or else the next minor one
+          tagged=$(git tag --points-at HEAD --list 'v[0-9]*' | head -1)
+          if [ -n "$tagged" ] && gh release view "$tagged" > /dev/null 2>&1; then
+            echo "Already released as $tagged" # a re-run of a released commit has nothing to do
             exit 0
           fi
 
-          last=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1)
-          if [ -z "$last" ]; then
+          last=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vxF "${tagged:-none}" | head -1)
+          if [ -n "$tagged" ]; then
+            next=$tagged
+          elif [ -z "$last" ]; then
             next=v1.0.0
           else
-            IFS=. read -r major minor patch <<< "${last#v}"
-            case "$BUMP" in
-              major) next="v$((major + 1)).0.0" ;;
-              patch) next="v$major.$minor.$((patch + 1))" ;;
-              *)     next="v$major.$((minor + 1)).0" ;;
-            esac
+            IFS=. read -r major minor _ <<< "${last#v}"
+            next="v$major.$((minor + 1)).0"
           fi
 
           {
