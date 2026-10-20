@@ -6,10 +6,12 @@ import { icon } from '../icons.js';
 
 const PART_LABELS = { c: 'Color', e: 'Eyes', m: 'Mouth', h: 'Hat' };
 
-export function characterEditor({ avatar, name, onEnter }) {
+// onChange (optional) fires on every tweak, so a half-designed character isn't lost on a reload
+export function characterEditor({ avatar, name, onEnter, onChange }) {
   const state = sanitizeAvatar(avatar || randomAvatar());
   const preview = h('div.big-avatar.wiggle');
   const updaters = [];
+  const profile = () => ({ name: nameInput.value.trim().slice(0, 18), avatar: { ...state } });
 
   const nameInput = h('input.input', {
     placeholder: 'Your name',
@@ -17,11 +19,13 @@ export function characterEditor({ avatar, name, onEnter }) {
     value: name || '',
     'aria-label': 'Your name',
     onkeydown: (e) => { if (e.key === 'Enter') onEnter?.(); },
+    oninput: () => onChange?.(profile()),
   });
 
-  function update() {
+  function update(changed = true) {
     preview.innerHTML = avatarSvg(state, 150);
     updaters.forEach((fn) => fn());
+    if (changed) onChange?.(profile());
   }
 
   function part(key) {
@@ -47,12 +51,10 @@ export function characterEditor({ avatar, name, onEnter }) {
     onclick: () => { Object.assign(state, randomAvatar()); update(); },
   }, icon('dice'));
 
-  update();
-  return {
-    nodes: [h('div.avatar-stage', h('span'), preview, dice), h('div.part-grid', part('c'), part('e'), part('m'), part('h')), nameInput],
-    nameInput,
-    profile: () => ({ name: nameInput.value.trim().slice(0, 18), avatar: { ...state } }),
-  };
+  // Build the pickers first: they register the labels that update() fills in
+  const nodes = [h('div.avatar-stage', h('span'), preview, dice), h('div.part-grid', part('c'), part('e'), part('m'), part('h')), nameInput];
+  update(false);
+  return { nodes, nameInput, profile };
 }
 
 // In-room pop-up: change your name/look without leaving the game
