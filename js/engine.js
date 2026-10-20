@@ -19,7 +19,7 @@ const GRACE_MS = 8000;          // how long a dropped drawer gets to reconnect
 const HINT_SHARE = [0, 0.3, 0.5];
 const DRAWER_PTS = 75;
 const DEFAULT_BG = '#ffffff';
-export const MAX_VOTES = 3;     // hearts each player can hand out in the end-of-game gallery
+export const MAX_VOTES = 3;     // most hearts anyone gets in the end-of-game gallery (one per round)
 
 const int = (v, lo, hi, d) => (Number.isFinite(+v) ? clamp(Math.round(+v), lo, hi) : d);
 const cleanName = (name) => String(name || '').replace(/\s+/g, ' ').trim().slice(0, 18) || 'Player';
@@ -130,9 +130,10 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     };
   }
 
-  // You can't vote for your own drawings, and you never get more hearts than there are drawings to like
+  // One heart per round played (up to 3), and never more than there are drawings you can like
+  // (your own don't count): a 1-round game with 3 players means a single heart each
   function maxVotes(id) {
-    return Math.min(MAX_VOTES, S.gallery.filter((d) => d.drawer !== id).length);
+    return Math.min(MAX_VOTES, S.settings.rounds, S.gallery.filter((d) => d.drawer !== id).length);
   }
 
   // Ops can be big, so canvas catch-up goes out in chunks
@@ -349,8 +350,13 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     const d = S.gallery.find((g) => g.id === id);
     if (!d || d.drawer === p.id) return;
     const mine = S.votes[p.id] || (S.votes[p.id] = []);
+    const max = maxVotes(p.id);
     if (mine.includes(id)) mine.splice(mine.indexOf(id), 1);
-    else if (mine.length < maxVotes(p.id)) mine.push(id);
+    else if (max > 0) {
+      // Out of hearts? Your oldest heart moves to the new pick instead of the tap doing nothing
+      if (mine.length >= max) mine.shift();
+      mine.push(id);
+    }
     sync();
   }
 

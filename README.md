@@ -24,7 +24,7 @@ Share a link, play in the browser, no accounts and no server.
 4. **Take turns.** The drawer picks one of a few words and draws it. Everyone else types guesses in the chat.
    Faster guesses score more, and the drawer earns points for every player who gets it.
 5. **Vote for the best drawing.** After the last round, every drawing goes up in a gallery and everyone hands
-   out hearts (not to their own, of course).
+   out hearts: one per round played, up to 3 (not to their own drawings, of course).
 6. **Two winners.** The points podium crowns the best guesser, the most-hearted drawing wins Best drawing, and a
    wall of fun stats celebrates the rest: easiest and hardest word, fastest guess, the minimalist who needed just
    two lines, and more.

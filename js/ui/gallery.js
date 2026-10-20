@@ -55,7 +55,8 @@ export function createGallery(els, { onVote, onDone, onShowResults, onPlayAgain,
     const me = st.players.find((p) => p.id === st.me);
     const here = st.players.filter((p) => p.online);
     const doneCount = here.filter((p) => p.voted).length;
-    voteStatus.replaceChildren(icon('heart'), ` ${left} of ${st.maxVotes} hearts left · ${doneCount}/${here.length} done`);
+    const hearts = st.maxVotes === 1 ? 'heart' : 'hearts';
+    voteStatus.replaceChildren(icon('heart'), ` ${left} of ${st.maxVotes} ${hearts} left · ${doneCount}/${here.length} done`);
     doneBtn.hidden = !!me?.voted;
     showBtn.hidden = st.me !== st.host;
   }
