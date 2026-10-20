@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#fdfbf4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f2b26" media="(prefers-color-scheme: dark)">
+<title>Guess My Mess</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%23ffd43b'/><path d='M15.4 4.6l4 4L9 19l-5.2 1.2L5 15z M13.4 6.6l4 4' fill='none' stroke='%232b2533' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Rubik+Doodle+Shadow&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<!-- Turbulence filter that makes "pencil" borders wobble a little -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<div id="app">
+  <!-- Home: build your character, then create or join a room -->
+  <section id="home" class="screen"></section>
+
+  <!-- Room: lobby and game share one layout (players · stage · chat) -->
+  <section id="room" class="screen" hidden>
+    <header class="topbar">
+      <div class="brand" title="Guess My Mess"><span data-icon="pencil"></span> <span>Guess My Mess</span></div>
+      <div class="round" id="roundInfo"></div>
+      <div class="hint" id="hint"></div>
+      <div class="timer" id="timer" hidden>
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="timer-track" cx="22" cy="22" r="18"/>
+          <circle class="timer-bar" cx="22" cy="22" r="18" pathLength="100"/>
+        </svg>
+        <span id="timerText"></span>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="soundBtn" type="button" title="Sound on/off" aria-label="Sound on/off"></button>
+        <button class="icon-btn" id="themeBtn" type="button" title="Notebook / chalkboard" aria-label="Switch theme"><span data-icon="moon"></span></button>
+        <button class="icon-btn" id="leaveBtn" type="button" title="Leave room" aria-label="Leave room"><span data-icon="door"></span></button>
+      </div>
+    </header>
+
+    <aside class="players card" id="players" aria-label="Players"></aside>
+
+    <main class="stage" id="stage">
+      <div id="lobby" class="lobby"></div>
+      <div id="play" class="play" hidden>
+        <div class="board-wrap" id="boardWrap">
+          <div class="board" id="board"></div>
+          <div class="overlay" id="overlay" hidden></div>
+          <div class="reactions-layer" id="reactionsLayer" aria-hidden="true"></div>
+          <div class="react-bar" id="reactBar"></div>
+        </div>
+        <div class="toolbar" id="toolbar" hidden></div>
+        <div class="drawer-feed" id="drawerFeed" aria-live="polite"></div>
+      </div>
+    </main>
+
+    <aside class="chat card" id="chat" aria-label="Chat">
+      <div class="chat-log" id="chatLog" aria-live="polite"></div>
+      <form class="chat-form" id="chatForm" autocomplete="off">
+        <input id="chatInput" maxlength="140" placeholder="Type your guess…" enterkeyhint="send">
+        <button class="btn small" type="submit">Send</button>
+      </form>
+    </aside>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
