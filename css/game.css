@@ -527,7 +527,25 @@
     gap: 8px;
     padding: 6px 10px 10px;
   }
-  #room.in-panel { grid-template-rows: auto auto minmax(0, 1fr) 170px; }
+  /* Lobby, voting and results scroll as one page (not a little box between players and chat);
+     the top bar stays pinned and the chat keeps its own fixed-height log at the bottom */
+  #room.in-panel {
+    grid-template-rows: auto max-content max-content 340px;
+    align-content: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  #room.in-panel .topbar {
+    position: sticky;
+    top: -6px; /* the room's top padding, so the bar sits flush with the screen edge */
+    z-index: 10;
+    margin: -6px -10px 0;
+    padding: 6px 10px;
+    background: var(--paper);
+    border-bottom: 2px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+  }
+  #room.in-panel .stage { min-height: auto; }
+  #room.in-panel .lobby, #room.in-panel .panel { flex: none; min-height: auto; overflow: visible; }
   #room.in-game .stage { height: var(--stage-h, auto); }
   /* Drawer mode: no chat, every brush and color within thumb reach */
   #room.drawer-mode { grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "top" "players" "stage"; }
