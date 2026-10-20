@@ -384,6 +384,7 @@
 .lobby .card { padding: 22px 18px 18px; }
 .lobby h3 { margin: 0 0 12px; font-weight: 400; font-size: 1.5rem; }
 .lobby .wide { grid-column: 1 / -1; }
+.lobby-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .invite-row { display: flex; gap: 8px; }
 .invite-row .input { font-size: 1rem; }
 /* The link gets the full card width (button underneath), so its start and its room code both show */

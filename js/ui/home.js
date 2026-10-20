@@ -2,6 +2,7 @@
 import { h, store } from '../util.js';
 import { icon } from '../icons.js';
 import { characterEditor } from './character.js';
+import { issueLink } from './issue-link.js';
 
 // Your character lives in this browser (localStorage), so the next game starts with it
 function remember({ name, avatar }) {
@@ -44,7 +45,7 @@ export function renderHome(root, { room, error, busy, onGo }) {
           ]
           : h('button.btn.primary.big', { type: 'button', disabled: busy, onclick: () => go(true) }, busy ? 'Opening…' : ['Create a room', icon('pencil')])),
     ),
-    h('p.home-foot', 'No sign-up · peer-to-peer · private link'),
+    h('div.home-foot', h('p', 'No sign-up · peer-to-peer · private link'), issueLink()),
   ));
   if (!busy) setTimeout(() => editor.nameInput.focus({ preventScroll: true }), 50);
 }

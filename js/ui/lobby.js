@@ -4,6 +4,7 @@ import { h, debounce } from '../util.js';
 import { avatarSvg } from '../avatar.js';
 import { LANGUAGES, parseCustomWords } from '../words/index.js';
 import { icon } from '../icons.js';
+import { issueLink } from './issue-link.js';
 
 const DIFFICULTY = { easy: 'Easy peasy', mixed: 'Mixed bag', medium: 'Medium', hard: 'Hard mode' };
 const TIMES = [30, 45, 60, 80, 100, 120, 150, 180, 240];
@@ -92,6 +93,7 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
         h('th.num', { title: 'Best-drawing awards' }, icon('heart'), ' Art'), h('th.num', 'Games'), h('th.num', 'Points'), h('th.num', 'Best'))), hallBody),
       h('p.muted', 'Kept on the host’s device, across games and rooms.'),
     ),
+    h('div.lobby-foot.wide', h('span.muted', 'Found a bug or have an idea?'), issueLink()),
   );
 
   return {

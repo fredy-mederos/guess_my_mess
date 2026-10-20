@@ -297,7 +297,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .arrow:hover { background: var(--accent); color: var(--accent-ink); }
 .arrow.dice { width: 46px; height: 46px; font-size: 1.4rem; }
 .creator-actions { display: grid; gap: 10px; }
-.home-foot { text-align: center; color: var(--muted); font-size: 1rem; }
+.home-foot { display: grid; justify-items: center; gap: 10px; text-align: center; color: var(--muted); font-size: 1rem; }
+.home-foot p { margin: 0; }
+/* "Report an issue": a sketchy ghost button with the doodled GitHub mark */
+.issue-link { text-decoration: none; color: var(--ink-soft); font-size: 1.02rem; }
+.issue-link:hover { color: var(--ink); }
+.issue-link .ic { font-size: 1.2rem; }
 .home-error {
   padding: 8px 12px;
   background: var(--danger-bg);
