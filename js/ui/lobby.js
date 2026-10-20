@@ -7,7 +7,7 @@ import { icon } from '../icons.js';
 
 const DIFFICULTY = { easy: 'Easy peasy', mixed: 'Mixed bag', medium: 'Medium', hard: 'Hard mode' };
 const TIMES = [30, 45, 60, 80, 100, 120, 150, 180, 240];
-const HINTS = ['No letter hints', 'A few letters', 'Lots of letters'];
+const HINTS = ['Off', 'A few', 'Lots'];
 
 const options = (pairs) => pairs.map(([v, label]) => h('option', { value: v }, label));
 

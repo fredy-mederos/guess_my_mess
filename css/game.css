@@ -221,7 +221,8 @@
 
 /* ---------- toolbar ---------- */
 .toolbar { position: relative; width: var(--board-w, 100%); flex: none; }
-.tb-row { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 2px 4px 6px 2px; scrollbar-width: thin; }
+/* Wraps rather than scrolls, so Undo/Clear are never hidden off to the side on laptop widths */
+.tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 4px 6px 2px; }
 .tb-btn {
   flex: none;
   height: 42px;
@@ -340,6 +341,7 @@
   grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
   gap: 26px 22px;
   align-content: start;
+  align-items: start;
   padding: 18px 8px 24px;
 }
 .lobby .card { padding: 22px 18px 18px; }
