@@ -1,9 +1,9 @@
 // In-game UI: players list, top bar (round, word hint, timer), overlays on the board
-// (word picker, waiting, reveal, podium) and floating reactions.
+// (word picker, waiting, reveal) and floating reactions. The final results live in gallery.js.
 import { h } from '../util.js';
 import { avatarSvg } from '../avatar.js';
 import { REACTIONS } from '../engine.js';
-import { icon, medal } from '../icons.js';
+import { icon } from '../icons.js';
 
 const av = (a, size) => h('span', { html: avatarSvg(a, size) });
 const REASONS = {
@@ -13,7 +13,7 @@ const REASONS = {
   left: ['door', 'The drawer left'],
 };
 
-export function createGameUI(els, { onChoose, onReact, onKick, onPlayAgain, onLobby }) {
+export function createGameUI(els, { onChoose, onReact, onKick }) {
   let overlayKey = '';
   let deadline = 0;       // local clock time when the current phase ends
   let phaseMs = 0;
@@ -32,9 +32,11 @@ export function createGameUI(els, { onChoose, onReact, onKick, onPlayAgain, onLo
       h('h3.players-title', h('span.marker', `Players (${st.players.filter((p) => p.online).length})`)),
       ...list.map((p, i) => {
         const drawing = inGame && p.id === st.drawer && st.phase !== 'podium';
-        const badge = drawing ? icon('pencil') : p.guessed ? icon('check') : p.id === st.host ? icon('crown') : '';
+        // A check means "guessed it" during turns and "done voting" in the gallery
+        const done = st.phase === 'voting' ? p.voted : ['drawing', 'reveal'].includes(st.phase) && p.guessed;
+        const badge = drawing ? icon('pencil') : done ? icon('check') : p.id === st.host ? icon('crown') : '';
         const gain = st.phase === 'reveal' && st.results?.pts[p.id];
-        return h(`div.player${p.id === st.me ? '.me' : ''}${p.guessed ? '.guessed' : ''}${drawing ? '.drawing' : ''}${p.online ? '' : '.offline'}`,
+        return h(`div.player${p.id === st.me ? '.me' : ''}${done ? '.guessed' : ''}${drawing ? '.drawing' : ''}${p.online ? '' : '.offline'}`,
           h('span.rank', inGame ? `#${i + 1}` : ''),
           av(p.avatar, 44),
           h('span.who',
@@ -56,6 +58,7 @@ export function createGameUI(els, { onChoose, onReact, onKick, onPlayAgain, onLo
     const r = Math.min(st.round, st.settings.rounds);
     els.roundInfo.replaceChildren(...(st.phase === 'lobby' ? ['Lobby']
       : st.phase === 'podium' ? ['Final scores']
+        : st.phase === 'voting' ? ['Voting']
         : [h('span.wide-only', `Round ${r} of ${st.settings.rounds}`), h('span.narrow-only', `${r}/${st.settings.rounds}`)]));
 
     let hint;
@@ -67,10 +70,13 @@ export function createGameUI(els, { onChoose, onReact, onKick, onPlayAgain, onLo
       const letters = [...st.hint].filter((c) => c !== ' ' && c !== '-').length;
       hint = [h('small', `guess this · ${letters} letters`), h('span', st.hint)];
     } else if (st.phase === 'reveal') hint = [h('small', 'the word was'), h('span.known', st.results?.word || '…')];
-    else hint = [h('small', ' '), h('span.known', icon('trophy'), ' Game over')];
+    else if (st.phase === 'voting') {
+      const left = st.maxVotes - st.myVotes.length;
+      hint = [h('small', 'vote for the best drawings'), h('span.known', icon('heart'), ` ${left} left`)];
+    } else hint = [h('small', ' '), h('span.known', icon('trophy'), ' Game over')];
     els.hint.replaceChildren(...hint);
 
-    const timed = st.remaining > 0 && ['choosing', 'drawing', 'reveal'].includes(st.phase);
+    const timed = st.remaining > 0 && ['choosing', 'drawing', 'reveal', 'voting'].includes(st.phase);
     els.timer.hidden = !timed;
     deadline = timed ? performance.now() + st.remaining : 0;
     phaseMs = st.phaseMs || 1;
@@ -123,59 +129,10 @@ export function createGameUI(els, { onChoose, onReact, onKick, onPlayAgain, onLo
         h('ul.gains', rows.map((p) => h('li',
           r.pts[p.id] ? h('span.plus', `+${r.pts[p.id]}`) : h('span.plus.zero', '+0'),
           av(p.avatar, 28), p.name, p.id === r.drawer ? icon('pencil') : ''))));
-    } else if (st.phase === 'podium' && st.final) {
-      card = podium(st);
     }
 
     els.overlay.hidden = !card;
     els.overlay.replaceChildren(...(card ? [card] : []));
-    if (st.phase === 'podium') els.overlay.append(confetti());
-  }
-
-  function podium(st) {
-    const [p1, p2, p3, ...rest] = st.final;
-    const step = (p, cls, place) => p && h(`div.step.${cls}`,
-      av(p.avatar, cls === 'p1' ? 84 : 64),
-      h('span.name', p.name),
-      h('div.block', medal(place), h('small', { style: { fontSize: '1rem', display: 'block' } }, p.score)));
-    const amHost = st.me === st.host;
-    return h('div.ov-card.card.tape',
-      h('h2', p1?.winner ? [`${p1.name} wins! `, icon('trophy')] : 'Game over!'),
-      h('div.podium', step(p2, 'p2', 2), step(p1, 'p1', 1), step(p3, 'p3', 3)),
-      rest.length ? h('ol.rest', { start: 4 }, rest.map((p) => h('li', `${p.name} · ${p.score}`))) : null,
-      h('div.podium-actions', amHost
-        ? [h('button.btn.pink', { type: 'button', onclick: onPlayAgain }, 'Play again'),
-          h('button.btn', { type: 'button', onclick: onLobby }, 'Change setup')]
-        : h('p.muted', 'Waiting for the host to start another game…')));
-  }
-
-  function confetti() {
-    const c = h('canvas.confetti');
-    const ctx = c.getContext('2d');
-    const colors = ['#ffd43b', '#ff8fab', '#74c0fc', '#8ce99a', '#b197fc', '#ffa94d'];
-    const bits = Array.from({ length: 140 }, () => ({
-      x: Math.random(), y: -Math.random() * 0.6, vy: 0.003 + Math.random() * 0.004,
-      vx: (Math.random() - 0.5) * 0.002, r: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.3,
-      c: colors[Math.floor(Math.random() * colors.length)], s: 6 + Math.random() * 6,
-    }));
-    const start = performance.now();
-    (function frame(t) {
-      if (!c.isConnected && t - start > 100) return;
-      c.width = c.clientWidth;
-      c.height = c.clientHeight;
-      for (const b of bits) {
-        b.x += b.vx; b.y += b.vy; b.r += b.vr;
-        ctx.save();
-        ctx.translate(b.x * c.width, b.y * c.height);
-        ctx.rotate(b.r);
-        ctx.fillStyle = b.c;
-        ctx.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2);
-        ctx.restore();
-      }
-      if (t - start < 6000) requestAnimationFrame(frame);
-      else c.remove();
-    })(start);
-    return c;
   }
 
   // ---------- reactions ----------

@@ -8,7 +8,8 @@ export function h(tag, props, ...children) {
   const [name, ...classes] = tag.split('.');
   const el = document.createElement(name || 'div');
   if (classes.length) el.className = classes.join(' ');
-  if (props && (typeof props !== 'object' || props instanceof Node || Array.isArray(props))) {
+  // Anything that isn't a plain options object is a child, including 0 and ''
+  if (props !== undefined && (props === null || typeof props !== 'object' || props instanceof Node || Array.isArray(props))) {
     children.unshift(props);
     props = null;
   }
@@ -72,7 +73,10 @@ export const store = {
     } catch { return fallback; }
   },
   set(key, value, area = localStorage) {
-    try { area.setItem(key, JSON.stringify(value)); } catch {}
+    try {
+      area.setItem(key, JSON.stringify(value));
+      return true;
+    } catch { return false; }
   },
   del(key, area = localStorage) {
     try { area.removeItem(key); } catch {}

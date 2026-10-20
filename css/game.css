@@ -361,6 +361,148 @@
 .hall td.num, .hall th.num { text-align: right; }
 .hall .who { display: flex; align-items: center; gap: 6px; }
 
+/* ---------- end of game: voting gallery + results ---------- */
+.panel {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 18px 8px 28px;
+}
+.panel h3 { margin: 0 0 12px; font-weight: 400; font-size: 1.45rem; }
+.vote-head { padding: 20px 18px 16px; }
+.vote-head p { margin: 0 0 10px; }
+.vote-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.vote-status { margin: 0 auto 0 0; font-size: 1.15rem; }
+.vote-status .ic { color: #e64980; }
+
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px; }
+.gallery-grid.small { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.gallery-card {
+  position: relative;
+  margin: 0;
+  padding: 8px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  background: var(--panel);
+  border: 2.5px solid var(--ink);
+  border-radius: var(--r-btn);
+  box-shadow: 2px 3px 0 var(--shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.gallery-card:nth-child(3n + 1) { transform: rotate(-0.8deg); }
+.gallery-card:nth-child(3n + 2) { transform: rotate(0.6deg); }
+.gallery-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  border-radius: 4px;
+  background: #fff;
+}
+.caption { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 1rem; line-height: 1.15; }
+.caption .word { color: var(--ink-soft); }
+.caption .hearts, .best-pic .hearts { margin-left: auto; color: #e64980; white-space: nowrap; }
+.vote-card { cursor: pointer; }
+.vote-card:hover:not(:disabled) { transform: rotate(-1.5deg) scale(1.02); box-shadow: 3px 5px 0 var(--shadow); }
+.vote-card .heart {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  color: var(--ink-soft);
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 50% 46% 52% 48%;
+}
+.vote-card.voted { border-color: #e64980; box-shadow: 3px 4px 0 #e64980; }
+.vote-card.voted .heart { color: #fff; background: #e64980; border-color: #e64980; animation: pop-in 0.2s ease-out; }
+.vote-card.voted .heart path { fill: currentColor; }
+.vote-card .yours {
+  display: none;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 0 8px;
+  font-size: 0.95rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-btn);
+}
+.vote-card.own { cursor: default; opacity: 0.75; }
+.vote-card.own .yours { display: block; }
+.vote-card.own .heart { display: none; }
+
+.results { align-items: stretch; }
+.results-title { margin: 0; text-align: center; font-weight: 400; font-size: clamp(1.8rem, 4vw, 2.6rem); transform: rotate(-1deg); }
+.award { padding: 22px 18px 18px; }
+.award h3 .ic { vertical-align: -0.15em; }
+.best-list { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+.best-pic { margin: 0; flex: 1 1 320px; max-width: 620px; display: flex; flex-direction: column; gap: 8px; }
+.best-pic img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 3px solid var(--ink);
+  border-radius: 6px 10px 8px 12px / 12px 6px 10px 8px;
+  box-shadow: 4px 5px 0 var(--shadow);
+  background: #fff;
+}
+.best-pic figcaption { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 1.15rem; }
+.best-pic .hearts { font-size: 1.3rem; }
+.results-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.results .confetti { position: absolute; inset: 0; height: 100vh; }
+
+/* Fun stats: sticky notes in pastel colors, slightly askew */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
+.stat-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 12px 14px;
+  color: #2b2533;
+  background: #fff3a8;
+  border-radius: 2px 2px 14px 2px;
+  box-shadow: 2px 4px 0 rgba(0, 0, 0, 0.12);
+  transform: rotate(-1.2deg);
+}
+.stat-note:nth-child(4n + 2) { background: #ffd6e0; transform: rotate(1deg); }
+.stat-note:nth-child(4n + 3) { background: #cdeafe; transform: rotate(-0.6deg); }
+.stat-note:nth-child(4n + 4) { background: #d3f9d8; transform: rotate(1.4deg); }
+.stat-head { font-size: 1rem; color: #5f5a66; }
+.stat-who { font-weight: 400; font-size: 1.4rem; line-height: 1.15; overflow-wrap: anywhere; }
+.stat-detail { font-size: 1rem; color: #3d3846; }
+
+/* ---------- character editor pop-up ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  padding: 16px;
+  overflow-y: auto;
+  background: rgba(20, 16, 28, 0.45);
+  animation: fade-in 0.15s ease-out;
+}
+.modal-card { margin: auto; width: min(440px, 100%); animation: pop-in 0.2s ease-out; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+@keyframes fade-in { from { opacity: 0; } }
+.me-btn { padding: 0; overflow: hidden; }
+.me-btn svg { width: 34px; height: 34px; }
+
 /* ---------- medium screens: players strip above the board ---------- */
 @media (max-width: 1199px) {
   #room {
@@ -385,7 +527,7 @@
     gap: 8px;
     padding: 6px 10px 10px;
   }
-  #room.in-lobby { grid-template-rows: auto auto minmax(0, 1fr) 170px; }
+  #room.in-panel { grid-template-rows: auto auto minmax(0, 1fr) 170px; }
   #room.in-game .stage { height: var(--stage-h, auto); }
   /* Drawer mode: no chat, every brush and color within thumb reach */
   #room.drawer-mode { grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "top" "players" "stage"; }
@@ -413,6 +555,14 @@
   .word-choices { gap: 8px; margin: 8px 0 2px; }
   .word-choices .btn.big { font-size: 1.15rem; padding: 0.2em 0.8em 0.25em; }
   .ov-card .muted { font-size: 0.95rem; }
+  .panel { padding: 12px 4px 20px; gap: 18px; }
+  .vote-head { padding: 14px 14px 12px; }
+  .vote-head h3 { margin-bottom: 6px; font-size: 1.25rem; }
+  .vote-head p.muted { display: none; }
+  .gallery-grid, .gallery-grid.small, .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .vote-card .heart { top: 12px; right: 12px; width: 34px; height: 34px; font-size: 1.15rem; }
+  .caption { font-size: 0.92rem; }
+  .stat-who { font-size: 1.2rem; }
   .react-bar { right: 6px; bottom: 6px; padding: 2px 4px; }
   .react-bar button { font-size: 1.15rem; }
   .lobby { padding: 14px 4px 18px; gap: 22px; }
@@ -426,10 +576,11 @@
   .podium { margin: 4px 0 2px; }
   .podium-actions { margin-top: 6px; }
   .podium-actions .btn { font-size: 1.05rem; padding: 0.15em 0.8em 0.2em; }
-  .step.p1 .block { height: 64px; }
-  .step.p2 .block { height: 48px; }
-  .step.p3 .block { height: 36px; }
-  .step .block { font-size: 1.2rem; }
+  .step.p1 .block { height: 80px; }
+  .step.p2 .block { height: 66px; }
+  .step.p3 .block { height: 58px; }
+  .step .block { font-size: 1.1rem; line-height: 1.05; align-content: center; padding-bottom: 6px; }
+  .step .block small { font-size: 0.9rem; }
 }
 
 /* ---------- big screens: give the board more room ---------- */

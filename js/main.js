@@ -9,10 +9,15 @@ import { renderHome } from './ui/home.js';
 import { createLobby } from './ui/lobby.js';
 import { createGameUI } from './ui/game.js';
 import { createChat } from './ui/chat.js';
+import { createGallery } from './ui/gallery.js';
+import { openCharacterEditor } from './ui/character.js';
+import { avatarSvg } from './avatar.js';
 import { sfx } from './sound.js';
 import { icon, hydrateIcons } from './icons.js';
 
 hydrateIcons();
+// No zooming on phones: iOS Safari ignores user-scalable=no, so cancel its pinch gestures too
+for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, (e) => e.preventDefault());
 const cid = clientId();
 const isPhone = () => matchMedia('(max-width: 759px)').matches;
 const roomEl = $('#room');
@@ -24,6 +29,7 @@ let engine = null;
 let isHosting = false;
 let prevPhase = null;
 let prevDrawer = null;
+let myProfile = null;     // { name, avatar }; also what a reconnect re-sends
 
 // ---------- theme & sound ----------
 const savedTheme = store.get('gmm:theme');
@@ -73,13 +79,33 @@ const game = createGameUI({
   onChoose: (i) => send({ t: 'choose', i }),
   onReact: (e) => send({ t: 'react', e }),
   onKick: (p) => { if (confirm(`Remove ${p.name} from the room?`)) send({ t: 'kick', id: p.id }); },
+});
+game.onLowTime((s) => sfx.tick(s));
+const gallery = createGallery({ vote: $('#vote'), results: $('#results') }, {
+  onVote: (id) => send({ t: 'vote', id }),
+  onDone: () => send({ t: 'voted' }),
+  onShowResults: () => send({ t: 'results' }),
   onPlayAgain: () => send({ t: 'start' }),
   onLobby: () => send({ t: 'lobby' }),
 });
-game.onLowTime((s) => sfx.tick(s));
 
 const skipBtn = h('button.icon-btn', { type: 'button', title: 'Skip this turn', 'aria-label': 'Skip this turn', hidden: true, onclick: () => send({ t: 'skip' }) }, icon('skip'));
 $('.top-actions').prepend(skipBtn);
+
+// Your own avatar in the top bar: tap it to change your look or name without leaving
+const meBtn = $('#meBtn');
+meBtn.onclick = () => {
+  if (!myProfile) return;
+  openCharacterEditor({
+    profile: myProfile,
+    onSave: (p) => {
+      Object.assign(myProfile, p);
+      store.set('gmm:name', p.name);
+      store.set('gmm:avatar', p.avatar);
+      send({ t: 'profile', ...p });
+    },
+  });
+};
 
 // ---------- incoming messages ----------
 function onMessage(msg) {
@@ -100,6 +126,12 @@ function onMessage(msg) {
       sfx.pop();
       break;
     }
+    case 'drawing':
+      // At the end of a turn only the label arrives: the strokes are already on this board
+      gallery.add(msg.d.ops ? msg.d : { ...msg.d, ...board.exportDrawing() });
+      if (st?.phase === 'voting') gallery.renderVoting(st);
+      break;
+    case 'gallery': if (msg.reset) gallery.reset(); break;
     case 'kicked': backHome('The host removed you from the room.'); break;
     case 'full': backHome('This room is full (16 players max).'); break;
   }
@@ -108,12 +140,16 @@ function onMessage(msg) {
 function render() {
   const amDrawer = st.phase === 'drawing' && st.me === st.drawer;
   const me = st.players.find((p) => p.id === st.me);
-  roomEl.classList.toggle('in-lobby', st.phase === 'lobby');
-  roomEl.classList.toggle('in-game', st.phase !== 'lobby');
-  $('#lobby').hidden = st.phase !== 'lobby';
-  $('#play').hidden = st.phase === 'lobby';
+  // One stage, four views: lobby, the board, the voting gallery, the results
+  const view = { lobby: 'lobby', voting: 'vote', podium: 'results' }[st.phase] || 'play';
+  for (const v of ['lobby', 'play', 'vote', 'results']) $(`#${v}`).hidden = v !== view;
+  roomEl.classList.toggle('in-panel', view !== 'play');
+  roomEl.classList.toggle('in-game', view === 'play');
   lobby.update(st, { host: st.me === st.host, inviteLink: inviteLink() });
   game.render(st);
+  if (view === 'vote') gallery.renderVoting(st);
+  if (view === 'results') gallery.renderResults(st);
+  if (me) meBtn.innerHTML = avatarSvg(me.avatar, 34);
 
   if (st.drawer !== prevDrawer && st.me === st.drawer) toolbar.reset();
   board.setInteractive(amDrawer);
@@ -131,6 +167,7 @@ function render() {
     if (st.phase === 'choosing' && st.me === st.drawer) sfx.turn();
     if (st.phase === 'drawing' && !amDrawer) chat.focus();
     if (st.phase === 'reveal') sfx.reveal();
+    if (st.phase === 'voting') sfx.turn();
     if (st.phase === 'podium') sfx.win();
   }
   prevPhase = st.phase;
@@ -196,7 +233,9 @@ function backHome(error) {
   room = null;
   history.replaceState(null, '', location.pathname);
   st = null;
+  myProfile = null;
   chat.clear();
+  gallery.reset();
   showHome({ error });
 }
 
@@ -209,10 +248,14 @@ function createRoom(profile) {
 
 function startHost(profile, saved) {
   isHosting = true;
+  myProfile = profile;
   store.set('gmm:hosting', room, sessionStorage);
   showHome({ busy: true });
   const deliverLocal = (msg) => queueMicrotask(() => onMessage(structuredClone(msg)));
-  const save = debounce((S) => store.set(`gmm:state:${room}`, S, sessionStorage), 1000);
+  // Session storage is ~5 MB; if a long game's drawings don't fit, keep everything else
+  const saveState = (S) => store.set(`gmm:state:${room}`, S, sessionStorage)
+    || store.set(`gmm:state:${room}`, { ...S, gallery: [] }, sessionStorage);
+  const save = debounce(saveState, 1000);
   engine = createEngine({
     hostId: cid,
     saved,
@@ -233,12 +276,13 @@ function startHost(profile, saved) {
       toast('Matchmaking server hiccup, retrying…', 3000);
     },
   });
-  addEventListener('pagehide', () => engine && store.set(`gmm:state:${room}`, engine.snapshot(), sessionStorage));
+  addEventListener('pagehide', () => engine && saveState(engine.snapshot()));
 }
 
 // ---------- joining ----------
 function joinExisting(profile) {
   isHosting = false;
+  myProfile = profile;
   store.set('gmm:joined', room, sessionStorage);
   showHome({ busy: true });
   send = (msg) => net?.send(msg);

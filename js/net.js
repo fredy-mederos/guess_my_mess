@@ -5,7 +5,9 @@
 
 const PREFIX = 'guessmymess-v1-';
 const PEER_OPTS = { debug: 1 };
-const CONN_OPTS = { reliable: true, serialization: 'json' };
+// 'binary' (BinaryPack) splits big messages into chunks; 'json' silently drops anything over
+// ~16 KB, which drawing snapshots and canvas catch-up for late joiners easily exceed
+const CONN_OPTS = { reliable: true, serialization: 'binary' };
 const PING_MS = 4000;
 const DEAD_MS = 14000;
 

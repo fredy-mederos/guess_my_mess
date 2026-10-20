@@ -19,8 +19,12 @@ const GRACE_MS = 8000;          // how long a dropped drawer gets to reconnect
 const HINT_SHARE = [0, 0.3, 0.5];
 const DRAWER_PTS = 75;
 const DEFAULT_BG = '#ffffff';
+export const MAX_VOTES = 3;     // hearts each player can hand out in the end-of-game gallery
 
 const int = (v, lo, hi, d) => (Number.isFinite(+v) ? clamp(Math.round(+v), lo, hi) : d);
+const cleanName = (name) => String(name || '').replace(/\s+/g, ' ').trim().slice(0, 18) || 'Player';
+// More drawings, more time to look at them: 30s to 90s
+const votingMs = (drawings) => clamp(20000 + drawings * 6000, 30000, 90000);
 
 export function cleanSettings(s = {}) {
   const d = DEFAULT_SETTINGS;
@@ -43,8 +47,17 @@ function freshState(settings) {
     drawer: null, choices: [], word: null, deadline: 0, phaseMs: 0, turnStart: 0,
     revealed: [], maxReveal: 0, ops: [], bg: DEFAULT_BG, guessCount: 0, used: [],
     results: null, final: null, banned: [], chatLog: [],
+    // End-of-game gallery: one snapshot per finished drawing, hearts per voter, the winners
+    gallery: [], votes: {}, done: [], best: [], tally: {},
+    // Fun stats: a record per turn plus per-player counters, summed up when the game ends
+    turnLog: [], guessTimes: [], undos: 0, wrong: {}, close: {}, stats: [],
   };
 }
+
+const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const minBy = (list, f) => list.reduce((a, b) => (a && f(a) <= f(b) ? a : b), null);
+const maxBy = (list, f) => list.reduce((a, b) => (a && f(a) >= f(b) ? a : b), null);
 
 export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, onHall }) {
   const S = saved ? { ...freshState(), ...saved } : freshState();
@@ -99,7 +112,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
       round: S.round,
       drawer: S.drawer,
       players: S.players.map(({ id, name, avatar, score, online, guessed, turnPts }) =>
-        ({ id, name, avatar, score, online, guessed, turnPts })),
+        ({ id, name, avatar, score, online, guessed, turnPts, voted: S.done.includes(id) })),
       remaining: S.deadline ? Math.max(0, S.deadline - now()) : 0,
       phaseMs: S.phaseMs,
       word: seesWord ? S.word : null,
@@ -107,8 +120,19 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
       choices: isDrawer && S.phase === 'choosing' ? S.choices : null,
       results: S.phase === 'reveal' ? S.results : null,
       final: S.phase === 'podium' ? S.final : null,
+      // Votes stay secret until the results, so nobody just follows the crowd
+      myVotes: S.votes[p.id] || [],
+      maxVotes: maxVotes(p.id),
+      best: S.phase === 'podium' ? S.best : [],
+      tally: S.phase === 'podium' ? S.tally : {},
+      stats: S.phase === 'podium' ? S.stats : [],
       hall: Object.values(hall).sort((a, b) => b.wins - a.wins || b.points - a.points).slice(0, 10),
     };
+  }
+
+  // You can't vote for your own drawings, and you never get more hearts than there are drawings to like
+  function maxVotes(id) {
+    return Math.min(MAX_VOTES, S.gallery.filter((d) => d.drawer !== id).length);
   }
 
   // Ops can be big, so canvas catch-up goes out in chunks
@@ -131,7 +155,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
   function hello(id, msg) {
     if (S.banned.includes(id)) return kick(id);
     let p = player(id);
-    const name = String(msg.name || '').replace(/\s+/g, ' ').trim().slice(0, 18) || 'Player';
+    const name = cleanName(msg.name);
     if (!p) {
       if (online().length >= MAX_PLAYERS) {
         sendTo(id, { t: 'full' });
@@ -147,7 +171,18 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     sendTo(id, { t: 'welcome', you: id });
     sendTo(id, view(p));
     sendCanvas(p);
+    // Newcomers (and anyone reconnecting) get the strokes of every drawing so far, one per message
+    for (const d of S.gallery) sendTo(id, { t: 'drawing', d });
     sendTo(id, { t: 'chatlog', list: S.chatLog.filter((m) => !m.private) });
+    sync();
+  }
+
+  // Change name/avatar in place, without leaving the room (score and turn are kept)
+  function updateProfile(p, msg) {
+    const old = p.name;
+    p.name = uniqueName(cleanName(msg.name), p.id);
+    p.avatar = sanitizeAvatar(msg.avatar);
+    if (old !== p.name) system(`${old} is now ${p.name}`);
     sync();
   }
 
@@ -175,6 +210,8 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     S.queue = S.players.map((p) => p.id);
     S.used = [];
     S.final = null;
+    Object.assign(S, { gallery: [], votes: {}, done: [], best: [], tally: {}, turnLog: [], wrong: {}, close: {}, stats: [] });
+    each((p) => sendTo(p.id, { t: 'gallery', reset: true }));
     system('Game on! Good luck everyone.', 'start');
     nextTurn();
   }
@@ -184,7 +221,8 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     while (!next) {
       if (!S.queue.length) {
         S.round++;
-        if (S.round > S.settings.rounds) return endGame();
+        // Last turn done: vote on the drawings first (needs at least two to choose from)
+        if (S.round > S.settings.rounds) return S.gallery.length >= 2 ? startVoting() : endGame();
         S.queue = online().map((p) => p.id);
       }
       const id = S.queue.shift();
@@ -211,9 +249,67 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     const letters = [...word].filter((ch) => /[\p{L}\p{N}]/u.test(ch)).length;
     S.maxReveal = Math.min(letters - 1, Math.floor(letters * HINT_SHARE[S.settings.hints]));
     S.turnStart = now();
+    S.guessTimes = [];
+    S.undos = 0;
     setPhase('drawing', S.settings.drawTime * 1000);
     system(`${player(S.drawer)?.name} is drawing now!`, 'drawing');
     sync();
+  }
+
+  // What happened this turn, for the end-of-game fun stats
+  function logTurn(drawer, reason) {
+    const inked = S.ops.filter((o) => o.c && o.b !== 'eraser');
+    S.turnLog.push({
+      word: S.word,
+      drawer: drawer.id,
+      name: drawer.name,
+      reason,
+      guesses: S.guessTimes.slice(),
+      possible: online().filter((o) => o.id !== drawer.id).length,
+      ms: now() - S.turnStart,
+      lines: S.ops.filter((o) => o.k === 's' || o.k === 'sh').length,
+      colors: new Set(inked.map((o) => (o.b === 'rainbow' ? 'rainbow' : o.c))).size,
+      undos: S.undos,
+    });
+  }
+
+  // A handful of playful awards; each one only shows up when there's something to say
+  function funStats() {
+    const name = (id) => player(id)?.name || 'Someone';
+    const turns = S.turnLog.filter((t) => t.reason === 'all' || t.reason === 'time');
+    const cracked = turns.filter((t) => t.guesses.length);
+    const out = [];
+    const add = (icon, title, who, detail) => out.push({ icon, title, who, detail });
+
+    const easy = minBy(cracked, (t) => t.guesses[0].ms);
+    if (easy) add('neon', 'Easiest word', `“${easy.word}”`, `guessed in ${secs(easy.guesses[0].ms)}`);
+    // Hardest: fewest people got it, then the slowest first guess
+    const hardness = (t) => (1 - t.guesses.length / Math.max(1, t.possible)) * 1e7 + (t.guesses[0]?.ms ?? t.ms);
+    const hard = turns.length > 1 ? maxBy(turns, hardness) : null;
+    if (hard && hard !== easy) add('think', 'Hardest word', `“${hard.word}”`, hard.guesses.length ? `took ${secs(hard.guesses[0].ms)} to crack` : 'nobody got it!');
+
+    const fast = minBy(turns.flatMap((t) => t.guesses.map((g) => ({ ...g, word: t.word }))), (g) => g.ms);
+    if (fast) add('clock', 'Fastest guess', name(fast.id), `“${fast.word}” in ${secs(fast.ms)}`);
+
+    const hits = {};
+    for (const t of turns) for (const g of t.guesses) hits[g.id] = (hits[g.id] || 0) + 1;
+    const sharp = maxBy(Object.entries(hits), ([, n]) => n);
+    if (sharp && sharp[1] >= 2) add('target', 'Sharpest eye', name(sharp[0]), `${plural(sharp[1], 'word')} guessed`);
+
+    const minimal = minBy(cracked.filter((t) => t.lines > 0), (t) => t.lines);
+    if (minimal) add('line', 'Minimalist', minimal.name, `“${minimal.word}” in ${plural(minimal.lines, 'line')}`);
+    const detailed = maxBy(turns, (t) => t.lines);
+    if (detailed && detailed !== minimal && detailed.lines >= 10) add('pencil', 'Most detailed', detailed.name, `${detailed.lines} lines for “${detailed.word}”`);
+    const colorful = maxBy(turns, (t) => t.colors);
+    if (colorful && colorful.colors >= 3) add('rainbow', 'Most colorful', colorful.name, `${colorful.colors} colors in “${colorful.word}”`);
+    const undo = maxBy(S.turnLog, (t) => t.undos);
+    if (undo && undo.undos >= 3) add('undo', 'Second thoughts', undo.name, `${undo.undos} undos on “${undo.word}”`);
+
+    const close = maxBy(Object.entries(S.close), ([, n]) => n);
+    if (close && close[1] >= 2) add('fire', 'So close', name(close[0]), `${close[1]} near misses`);
+    const wild = maxBy(Object.entries(S.wrong), ([, n]) => n);
+    if (wild && wild[1] >= 3) add('chat', 'Wild guesser', name(wild[0]), `${wild[1]} wrong guesses`);
+    return out;
   }
 
   function endTurn(reason) {
@@ -224,9 +320,44 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
       drawer: S.drawer,
       pts: Object.fromEntries(S.players.filter((p) => p.turnPts).map((p) => [p.id, p.turnPts])),
     };
+    if (S.word && drawer) logTurn(drawer, reason);
+    // Keep every real drawing for the end-of-game gallery, as strokes (vector), not pixels.
+    // Everyone already received those strokes live, so only the label goes out now;
+    // each device pairs it with the drawing on its own board and redraws it crisply later.
+    if (S.word && S.ops.length && drawer) {
+      const d = { id: S.gallery.length + 1, drawer: drawer.id, name: drawer.name, avatar: drawer.avatar, word: S.word };
+      S.gallery.push({ ...d, bg: S.bg, ops: S.ops });
+      each((p) => sendTo(p.id, { t: 'drawing', d }));
+    }
     if (S.word) system(`The word was “${S.word}”`, 'reveal');
     else if (reason === 'left') system(`${drawer?.name || 'The drawer'} left, skipping the turn`);
     setPhase('reveal', REVEAL_MS);
+    sync();
+  }
+
+  function startVoting() {
+    S.drawer = null;
+    S.word = null;
+    S.votes = {};
+    S.done = [];
+    setPhase('voting', votingMs(S.gallery.length));
+    system('Time to vote for the best drawing!', 'start');
+    sync();
+  }
+
+  function vote(p, id) {
+    const d = S.gallery.find((g) => g.id === id);
+    if (!d || d.drawer === p.id) return;
+    const mine = S.votes[p.id] || (S.votes[p.id] = []);
+    if (mine.includes(id)) mine.splice(mine.indexOf(id), 1);
+    else if (mine.length < maxVotes(p.id)) mine.push(id);
+    sync();
+  }
+
+  function doneVoting(p) {
+    if (!S.done.includes(p.id)) S.done.push(p.id);
+    // Everyone who's here pressed "Done": no need to wait for the clock
+    if (online().every((o) => S.done.includes(o.id))) return endGame();
     sync();
   }
 
@@ -236,18 +367,32 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     const ranked = [...S.players].sort((a, b) => b.score - a.score);
     const top = ranked[0]?.score ?? 0;
     S.final = ranked.map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, score: p.score, winner: p.score === top && top > 0 }));
+
+    // Second award: the drawing(s) with the most hearts
+    S.tally = {};
+    for (const ids of Object.values(S.votes)) for (const id of ids) S.tally[id] = (S.tally[id] || 0) + 1;
+    const most = Math.max(0, ...Object.values(S.tally));
+    S.best = most ? S.gallery.filter((d) => S.tally[d.id] === most).map((d) => d.id) : [];
+    const artists = new Set(S.best.map((id) => S.gallery.find((d) => d.id === id).drawer));
+
     for (const p of S.final) {
       const key = normalize(p.name) || p.id;
-      const h = hall[key] || (hall[key] = { name: p.name, wins: 0, games: 0, points: 0, best: 0 });
+      const h = hall[key] || (hall[key] = { name: p.name, wins: 0, games: 0, points: 0, best: 0, art: 0 });
       Object.assign(h, { name: p.name, avatar: p.avatar });
       h.games++;
       h.points += p.score;
       h.best = Math.max(h.best, p.score);
       if (p.winner) h.wins++;
+      if (artists.has(p.id)) h.art = (h.art || 0) + 1;
     }
     onHall?.(hall);
     const winners = S.final.filter((p) => p.winner).map((p) => p.name);
     system(winners.length ? `${winners.join(' & ')} won the game!` : 'Game over!', 'win');
+    if (artists.size) {
+      const names = [...artists].map((id) => player(id)?.name).filter(Boolean);
+      system(`Best drawing: ${names.join(' & ')}!`, 'win');
+    }
+    S.stats = funStats();
     setPhase('podium');
     sync();
   }
@@ -274,6 +419,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
       p.turnPts += pts;
       p.guessed = true;
       S.guessCount++;
+      S.guessTimes.push({ id: p.id, ms: now() - S.turnStart });
       const drawer = player(S.drawer);
       if (drawer) { drawer.score += DRAWER_PTS; drawer.turnPts += DRAWER_PTS; }
       each((o) => chat(o, o === p
@@ -285,7 +431,9 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     }
     const msg = { kind: 'msg', from: p.id, name: p.name, text };
     chatAll(msg);
+    S.wrong[p.id] = (S.wrong[p.id] || 0) + 1;
     const close = w.length >= 4 && levenshtein(n, w) <= (w.length >= 8 ? 2 : 1);
+    if (close) S.close[p.id] = (S.close[p.id] || 0) + 1;
     if (close && S.settings.closeHints) chat(p, { kind: 'close', text: `“${text}” is really close!` });
   }
 
@@ -322,7 +470,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
         target.p.push(...msg.p.slice(0, 2000));
         break;
       }
-      case 'undo': S.ops.pop(); break;
+      case 'undo': S.ops.pop(); S.undos++; break;
       case 'clear': S.ops = []; break;
       case 'bg': S.bg = String(msg.c).slice(0, 9); break;
       case 'end': break;
@@ -357,6 +505,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     if (S.phase === 'choosing') choose(-1);
     else if (S.phase === 'drawing') endTurn('time');
     else if (S.phase === 'reveal') nextTurn();
+    else if (S.phase === 'voting') endGame();
   }, 250);
 
   // ---------- inbound ----------
@@ -368,6 +517,16 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     switch (msg.t) {
       case 'chat': return onChat(p, msg.text);
       case 'd': return onDraw(p, msg);
+      case 'profile': return updateProfile(p, msg);
+      case 'vote':
+        if (S.phase === 'voting') vote(p, msg.id);
+        return;
+      case 'voted':
+        if (S.phase === 'voting') doneVoting(p);
+        return;
+      case 'results':
+        if (isHost && S.phase === 'voting') endGame();
+        return;
       case 'choose':
         if (S.phase === 'choosing' && id === S.drawer) choose(int(msg.i, 0, S.choices.length - 1, 0));
         return;

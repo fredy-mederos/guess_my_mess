@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#fdfbf4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1f2b26" media="(prefers-color-scheme: dark)">
 <title>Guess My Mess</title>
@@ -40,6 +40,7 @@
         <span id="timerText"></span>
       </div>
       <div class="top-actions">
+        <button class="icon-btn me-btn" id="meBtn" type="button" title="Edit your character" aria-label="Edit your character"></button>
         <button class="icon-btn" id="soundBtn" type="button" title="Sound on/off" aria-label="Sound on/off"></button>
         <button class="icon-btn" id="themeBtn" type="button" title="Notebook / chalkboard" aria-label="Switch theme"><span data-icon="moon"></span></button>
         <button class="icon-btn" id="leaveBtn" type="button" title="Leave room" aria-label="Leave room"><span data-icon="door"></span></button>
@@ -60,6 +61,9 @@
         <div class="toolbar" id="toolbar" hidden></div>
         <div class="drawer-feed" id="drawerFeed" aria-live="polite"></div>
       </div>
+      <!-- End of game: vote on the drawings, then the results with both awards -->
+      <div id="vote" class="panel" hidden></div>
+      <div id="results" class="panel results" hidden></div>
     </main>
 
     <aside class="chat card" id="chat" aria-label="Chat">

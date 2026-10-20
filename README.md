@@ -23,7 +23,11 @@ Share a link, play in the browser, no accounts and no server.
 3. **Set up the game** (host): word pack language, difficulty, rounds, drawing time and your own team words.
 4. **Take turns.** The drawer picks one of a few words and draws it. Everyone else types guesses in the chat.
    Faster guesses score more, and the drawer earns points for every player who gets it.
-5. **Podium.** After the last round the winner takes the crown and the hall of fame gets updated.
+5. **Vote for the best drawing.** After the last round, every drawing goes up in a gallery and everyone hands
+   out hearts (not to their own, of course).
+6. **Two winners.** The points podium crowns the best guesser, the most-hearted drawing wins Best drawing, and a
+   wall of fun stats celebrates the rest: easiest and hardest word, fastest guess, the minimalist who needed just
+   two lines, and more.
 
 ## Features
 
@@ -38,7 +42,12 @@ Share a link, play in the browser, no accounts and no server.
   accents, spaces and hyphens don't matter (`arbol` = `árbol`, `standup` = `stand-up`). Players who already
   guessed can keep chatting without spoiling it.
 - **Scores and bragging rights**: points by speed with a first-guess bonus, a reveal after every turn, a podium
-  with confetti and a hall of fame that persists on the host's device.
+  with confetti and a hall of fame (wins and best-drawing awards) that persists on the host's device.
+- **Best drawing award**: a heart vote over every drawing of the game. The winners are shown big and can be saved
+  as full-size images. Drawings travel as strokes (vector data) and are redrawn on each device, so they stay crisp.
+- **Fun stats**: easiest / hardest word, fastest guess, sharpest eye, minimalist, most detailed, most colorful,
+  second thoughts (undos), so close and wild guesser.
+- **Change your look any time**: tap your avatar in the top bar to edit your character or name mid-game.
 - **Made for phones too**: on a phone the drawer gets the whole screen (chat tucks away, all tools in reach,
   latest guesses shown under the palette).
 - **Hand-drawn look**: notebook paper in light mode, chalkboard in dark mode, reactions and sound effects.
@@ -115,7 +124,7 @@ js/toolbar.js       the drawer's tools
 js/icons.js         hand-drawn line icons
 js/avatar.js        doodle avatar parts
 js/words/           word packs
-js/ui/              home, lobby, in-game overlays, chat
+js/ui/              home, character editor, lobby, in-game overlays, chat, voting gallery + results
 serve.py            local dev server (no caching, prints the LAN address)
 ```
 

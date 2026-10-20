@@ -91,6 +91,7 @@ html, body {
   color: var(--ink);
   background-color: var(--paper);
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* no double-tap zoom */
 }
 
 /* Ruled notebook lines + red margin; on the chalkboard they fade to faint smudges */
@@ -294,6 +295,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .arrow:hover { background: var(--accent); color: var(--accent-ink); }
+.arrow.dice { width: 46px; height: 46px; font-size: 1.4rem; }
 .creator-actions { display: grid; gap: 10px; }
 .home-foot { text-align: center; color: var(--muted); font-size: 1rem; }
 .home-error {

@@ -236,6 +236,24 @@ function renderOp(ctx, op) {
   }
 }
 
+// Redraws a saved drawing from its strokes at full size and returns an image URL (PNG blob).
+// Same renderer as the live board, so brushes, fills and erasing look exactly the same.
+export function renderDrawing(drawingOps, paper) {
+  const ink = document.createElement('canvas');
+  ink.width = W;
+  ink.height = H;
+  const ictx = ink.getContext('2d', { willReadFrequently: true });
+  for (const op of drawingOps) renderOp(ictx, op);
+  const out = document.createElement('canvas');
+  out.width = W;
+  out.height = H;
+  const o = out.getContext('2d');
+  o.fillStyle = paper || '#ffffff';
+  o.fillRect(0, 0, W, H);
+  o.drawImage(ink, 0, 0);
+  return new Promise((resolve) => out.toBlob((blob) => resolve(blob ? URL.createObjectURL(blob) : ''), 'image/png'));
+}
+
 export function createBoard(root, { onEmit }) {
   const main = document.createElement('canvas');
   const live = document.createElement('canvas');
@@ -449,16 +467,9 @@ export function createBoard(root, { onEmit }) {
       setBg(c);
       onEmit({ a: 'bg', c });
     },
-    snapshot() {
-      // Flatten background + drawing into one image (for "save drawing")
-      const out = document.createElement('canvas');
-      out.width = W;
-      out.height = H;
-      const o = out.getContext('2d');
-      o.fillStyle = bg;
-      o.fillRect(0, 0, W, H);
-      o.drawImage(main, 0, 0);
-      return out.toDataURL('image/png');
+    // The finished drawing as data (strokes + paper color), for the end-of-game gallery
+    exportDrawing() {
+      return { ops: ops.slice(), bg };
     },
   };
 }

@@ -84,7 +84,8 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
     ),
     h('section.card.hall.wide',
       h('h3', h('span.marker', 'Hall of fame'), ' ', hallReset),
-      h('table', h('thead', h('tr', h('th', '#'), h('th', 'Player'), h('th.num', icon('trophy'), ' Wins'), h('th.num', 'Games'), h('th.num', 'Points'), h('th.num', 'Best'))), hallBody),
+      h('table', h('thead', h('tr', h('th', '#'), h('th', 'Player'), h('th.num', { title: 'Games won on points' }, icon('trophy'), ' Wins'),
+        h('th.num', { title: 'Best-drawing awards' }, icon('heart'), ' Art'), h('th.num', 'Games'), h('th.num', 'Points'), h('th.num', 'Best'))), hallBody),
       h('p.muted', 'Kept on the host’s device, across games and rooms.'),
     ),
   );
@@ -113,8 +114,8 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
         ? st.hall.map((r, i) => h('tr',
           h('td', i + 1),
           h('td', h('span.who', h('span', { html: avatarSvg(r.avatar, 28) }), r.name)),
-          h('td.num', r.wins), h('td.num', r.games), h('td.num', r.points), h('td.num', r.best)))
-        : [h('tr', h('td.muted', { colSpan: 6 }, 'No games yet. Be the first legend!'))]));
+          h('td.num', r.wins), h('td.num', r.art || 0), h('td.num', r.games), h('td.num', r.points), h('td.num', r.best)))
+        : [h('tr', h('td.muted', { colSpan: 7 }, 'No games yet. Be the first legend!'))]));
     },
   };
 }
