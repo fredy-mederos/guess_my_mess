@@ -33,7 +33,10 @@ Share a link, play in the browser, no accounts and no server.
 
 - **Private rooms**: every room gets a random, unguessable link. The room ID lives after the `#`, so it never
   reaches any web server.
-- **Game setup**: word packs in English, Español and Deutsch; easy / mixed / medium / hard; 1 to 10 rounds;
+- **Word packs**: 600 hand-picked words each in English, Español, Deutsch, Português and Français (easy, medium
+  and hard: objects, animals, food, jobs, idioms and some office and car life). The host's device remembers recent
+  words, so they don't come back in the next games.
+- **Game setup**: word pack language; easy / mixed / medium / hard; 1 to 10 rounds;
   30 to 240 second turns; pick from 1 to 5 words; letter hints; "you're close" hints; custom team words, mixed
   in or on their own.
 - **Drawing tools**: pen, pencil, marker, ink nib, spray, neon, rainbow, eraser, fill bucket, line, box, oval,
@@ -93,7 +96,7 @@ release every player loads the new version instead of a mix of cached old files 
 
 ## Customize
 
-- **Words**: edit the easy / medium / hard lists in `js/words/en.js`, `es.js` and `de.js`.
+- **Words**: edit the easy / medium / hard lists in `js/words/en.js`, `es.js`, `de.js`, `pt.js` and `fr.js`.
 - **New language**: copy one of those files and register it in `js/words/index.js`.
 - **Timing and scoring**: constants at the top of `js/engine.js`.
 

@@ -59,7 +59,10 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const minBy = (list, f) => list.reduce((a, b) => (a && f(a) <= f(b) ? a : b), null);
 const maxBy = (list, f) => list.reduce((a, b) => (a && f(a) >= f(b) ? a : b), null);
 
-export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, onHall }) {
+const RECENT_MAX = 300; // built-in words remembered across games so they don't repeat soon
+
+// `recent` = words picked in earlier games on this host device (kept in localStorage via onRecent)
+export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = [], onSave, onHall, onRecent }) {
   const S = saved ? { ...freshState(), ...saved } : freshState();
   if (saved) S.players.forEach((p) => { p.online = false; p.offlineSince = Date.now(); });
   let dirty = false;
@@ -231,7 +234,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     }
     S.drawer = next;
     S.word = null;
-    S.choices = pickChoices(S.settings, new Set(S.used), S.settings.choices);
+    S.choices = pickChoices(S.settings, new Set(S.used), S.settings.choices, new Set(recent));
     S.revealed = [];
     S.ops = [];
     S.bg = DEFAULT_BG;
@@ -247,6 +250,9 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, onSave, o
     const word = S.choices[i] ?? pick(S.choices);
     S.word = word;
     S.used.push(word);
+    recent.push(word);
+    if (recent.length > RECENT_MAX) recent.splice(0, recent.length - RECENT_MAX);
+    onRecent?.(recent);
     const letters = [...word].filter((ch) => /[\p{L}\p{N}]/u.test(ch)).length;
     S.maxReveal = Math.min(letters - 1, Math.floor(letters * HINT_SHARE[S.settings.hints]));
     S.turnStart = now();

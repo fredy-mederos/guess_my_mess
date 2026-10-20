@@ -93,10 +93,12 @@ export function clientId() {
   return id;
 }
 
-// "Élefant!" and "elefant" should match, as should "Straße" and "strasse"
+// "Élefant!" and "elefant" should match, as should "Straße" and "strasse", "œuf" and "oeuf"
 export function normalize(s) {
   return String(s)
     .toLowerCase()
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae')
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .replace(/ß/g, 'ss')

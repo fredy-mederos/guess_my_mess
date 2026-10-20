@@ -260,6 +260,8 @@ function startHost(profile, saved) {
     hostId: cid,
     saved,
     hall: store.get('gmm:hall', {}),
+    recent: store.get('gmm:recent', []),
+    onRecent: (recent) => store.set('gmm:recent', recent),
     sendTo: (pid, msg) => (pid === cid ? deliverLocal(msg) : net?.sendTo(pid, msg)),
     kick: (pid) => net?.kick(pid),
     onSave: save,
