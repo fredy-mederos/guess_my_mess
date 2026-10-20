@@ -11,8 +11,8 @@ Share a link, play in the browser, no accounts and no server.
 
 [![Deploy to GitHub Pages](https://github.com/fredy-mederos/guess_my_mess/actions/workflows/deploy.yml/badge.svg)](https://github.com/fredy-mederos/guess_my_mess/actions/workflows/deploy.yml)
 
-<img src="docs/screenshots/desktop.jpg" alt="Desktop: guessing a rubber duck drawing while the chat fills with guesses" width="76%">&nbsp;
-<img src="docs/screenshots/mobile.jpg" alt="Phone: drawing a sunflower with every tool in reach" width="21.5%">
+<img src="docs/screenshots/desktop.jpg" alt="Desktop: guessing a rubber duck drawing, one blank per letter, while the chat fills with guesses" width="76%">&nbsp;
+<img src="docs/screenshots/mobile.jpg" alt="Phone: drawing a sunflower with all eight tools and the palette in reach" width="21.5%">
 
 </div>
 
@@ -31,8 +31,9 @@ Share a link, play in the browser, no accounts and no server.
 
 ## Features
 
-- **Private rooms**: every room gets a random, unguessable link. The room ID lives after the `#`, so it never
-  reaches any web server.
+- **Private rooms for up to 24 players**: every room gets a random, unguessable link. The room ID lives after
+  the `#`, so it never reaches any web server. Stress-tested with 20 players on phones, laptops and tablets,
+  including players dropping out and the host reloading mid-game.
 - **Word packs**: 600 hand-picked words each in English, Español, Deutsch, Português and Français (easy, medium
   and hard: objects, animals, food, jobs, idioms and some office and car life). The host's device remembers recent
   words, so they don't come back in the next games.
