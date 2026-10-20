@@ -1,4 +1,5 @@
-# Publishes the game to GitHub Pages whenever the `release` branch moves.
+# Publishes the game to GitHub Pages whenever the `release` branch moves, then tags the
+# release (v1.0.0, v1.1.0, ...) and creates a GitHub Release listing what changed.
 # Ship a new version with:  git push origin main:release
 name: Deploy to GitHub Pages
 
@@ -6,6 +7,12 @@ on:
   push:
     branches: [release]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to bump when tagging this release
+        type: choice
+        options: [minor, patch, major]
+        default: minor
 
 permissions:
   contents: read
@@ -46,3 +53,50 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Only after a successful deploy from `release`: tag it and publish a GitHub Release
+  tag:
+    needs: deploy
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags, to find the previous version
+
+      - name: Tag and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump || 'minor' }}
+        run: |
+          # A re-run of an already released commit has nothing to do
+          existing=$(git tag --points-at HEAD --list 'v*' | head -1)
+          if [ -n "$existing" ]; then
+            echo "Already released as $existing"
+            exit 0
+          fi
+
+          last=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1)
+          if [ -z "$last" ]; then
+            next=v1.0.0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            case "$BUMP" in
+              major) next="v$((major + 1)).0.0" ;;
+              patch) next="v$major.$minor.$((patch + 1))" ;;
+              *)     next="v$major.$((minor + 1)).0" ;;
+            esac
+          fi
+
+          {
+            echo "## What's new"
+            echo
+            git log --no-merges --pretty='- %s (%h)' ${last:+$last..}HEAD
+            echo
+            echo "Play it: https://fredy-mederos.github.io/guess_my_mess/"
+          } > notes.md
+
+          gh release create "$next" --target "$GITHUB_SHA" --title "$next" --notes-file notes.md
+          echo "Released $next"

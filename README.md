@@ -95,6 +95,11 @@ git push origin main:release
 The workflow ships only the game files and stamps every script and stylesheet URL with the commit, so after a
 release every player loads the new version instead of a mix of cached old files and new ones.
 
+After a successful deploy, the release is tagged automatically (`v1.0.0`, `v1.1.0`, `v1.2.0`, …) and gets a
+[GitHub Release](https://github.com/fredy-mederos/guess_my_mess/releases) listing the commits since the previous
+version. Every release bumps the minor number; for a patch or major bump, run the workflow from the Actions tab
+on the `release` branch and pick the bump.
+
 ## Customize
 
 - **Words**: edit the easy / medium / hard lists in `js/words/en.js`, `es.js`, `de.js`, `pt.js` and `fr.js`.
