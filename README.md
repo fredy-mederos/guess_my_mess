@@ -1,44 +1,65 @@
+<div align="center">
+
 # Guess My Mess
 
-A drawing & guessing party game for teams. One person draws, everyone else races to guess
-the word in the chat. Share a link, play in the browser, and there's no server to run.
+**Draw it badly. Guess it fast.**
+
+A hand-drawn drawing and guessing party game for teams.<br>
+Share a link, play in the browser, no accounts and no server.
+
+**[Play now](https://fredy-mederos.github.io/guess_my_mess/)** · [How to play](#how-to-play) · [How it works](#how-it-works) · [Run it locally](#run-it-locally)
+
+[![Deploy to GitHub Pages](https://github.com/fredy-mederos/guess_my_mess/actions/workflows/deploy.yml/badge.svg)](https://github.com/fredy-mederos/guess_my_mess/actions/workflows/deploy.yml)
+
+<img src="docs/screenshots/desktop.jpg" alt="Desktop: guessing a rubber duck drawing while the chat fills with guesses" width="76%">&nbsp;
+<img src="docs/screenshots/mobile.jpg" alt="Phone: drawing a sunflower with every tool in reach" width="21.5%">
+
+</div>
+
+## How to play
+
+1. **Make your doodle.** Open the game, build a character (color, eyes, mouth, hat) and pick a name.
+2. **Create a room** and hit **Copy link**. Paste it in your team chat; everyone who opens it joins your room.
+3. **Set up the game** (host): word pack language, difficulty, rounds, drawing time and your own team words.
+4. **Take turns.** The drawer picks one of a few words and draws it. Everyone else types guesses in the chat.
+   Faster guesses score more, and the drawer earns points for every player who gets it.
+5. **Podium.** After the last round the winner takes the crown and the hall of fame gets updated.
 
 ## Features
 
-- **Private rooms**: create a room, copy the link, and your team joins. The room ID is a random,
-  unguessable string kept after the `#`, so it never reaches the web server.
-- **Make your character**: build a doodle avatar (color, eyes, mouth, hat) and pick a name.
-- **Game setup** (host): word pack language (English, Español, Deutsch), difficulty,
-  number of rounds, drawing time, how many words to choose from, letter hints, "close guess"
-  hints, and **your own custom words** (mixed in or used on their own).
-- **Drawing tools**: pen, pencil, marker, ink nib, spray, neon, rainbow, eraser, fill bucket,
-  line/rectangle/ellipse, 24 colors plus a custom picker, brush size, paper color, undo, clear.
-- **Scoring**: faster guesses score more, the first guess gets a bonus, and the drawer earns
-  points for every correct guess. Final podium plus a **hall of fame** that persists on the host's device.
-- **Chat**: guesses go in the chat. Correct answers are hidden, near misses get a private
-  "so close!", and players who already guessed can talk without spoiling it.
-- Reactions, sound effects, notebook (light) / chalkboard (dark) themes, works on phones and big screens.
-- Survives reloads: the host can refresh and the room comes back. Guests rejoin and keep their score.
+- **Private rooms**: every room gets a random, unguessable link. The room ID lives after the `#`, so it never
+  reaches any web server.
+- **Game setup**: word packs in English, Español and Deutsch; easy / mixed / medium / hard; 1 to 10 rounds;
+  30 to 240 second turns; pick from 1 to 5 words; letter hints; "you're close" hints; custom team words, mixed
+  in or on their own.
+- **Drawing tools**: pen, pencil, marker, ink nib, spray, neon, rainbow, eraser, fill bucket, line, box, oval,
+  24 colors plus a custom picker, brush size, paper color, undo and clear.
+- **Fair guessing**: correct answers are hidden from the chat, near misses get a private "so close!", and
+  accents, spaces and hyphens don't matter (`arbol` = `árbol`, `standup` = `stand-up`). Players who already
+  guessed can keep chatting without spoiling it.
+- **Scores and bragging rights**: points by speed with a first-guess bonus, a reveal after every turn, a podium
+  with confetti and a hall of fame that persists on the host's device.
+- **Made for phones too**: on a phone the drawer gets the whole screen (chat tucks away, all tools in reach,
+  latest guesses shown under the palette).
+- **Hand-drawn look**: notebook paper in light mode, chalkboard in dark mode, reactions and sound effects.
+- **Survives reloads**: the host can refresh and the room comes back; guests rejoin and keep their score.
 
-## How it works (no server)
+## How it works
 
-The site is plain static files, so GitHub Pages can host it. Multiplayer happens **peer-to-peer**
-over WebRTC:
+The site is just static files, so GitHub Pages can host it. Multiplayer is **peer-to-peer** over WebRTC:
 
 ```
-          ┌──────────── host's browser ────────────┐
-guest ◀──▶│  game engine: turns, timer, word, score │◀──▶ guest
-guest ◀──▶│  (the host is also a player)            │◀──▶ guest
-          └─────────────────────────────────────────┘
+              ┌──────── host's browser ────────┐
+   guest <--> │  game engine: turns, timer,    │ <--> guest
+   guest <--> │  secret word, guesses, scores  │ <--> guest
+              └────────────────────────────────┘
 ```
 
-- The browser that creates the room **is the game server**. It holds the secret word and sends
-  each player only what they're allowed to see.
-- The free public [PeerJS](https://peerjs.com) server is only used to introduce browsers to each
-  other. Drawings, guesses and chat go directly between browsers, encrypted (DTLS).
-- **The host must keep the tab open.** Closing it ends the room. A reload is fine.
-- Some corporate networks or VPNs block peer-to-peer connections. If a teammate can't join,
-  try without the VPN. PeerJS falls back to its relay servers when it can.
+- The browser that creates the room **is the game server**. It holds the secret word and sends each player only
+  what they're allowed to see.
+- The free public [PeerJS](https://peerjs.com) server only introduces browsers to each other. Drawings, guesses and
+  chat travel directly between players, encrypted.
+- **The host must keep the tab open.** Closing it ends the room; a reload is fine.
 
 ## Run it locally
 
@@ -46,39 +67,58 @@ guest ◀──▶│  (the host is also a player)            │◀──▶ gu
 python3 serve.py
 ```
 
-It prints two addresses: `localhost` for this computer, and your network IP for phones and
-laptops on the same Wi-Fi. Create the room from the network-IP address so the invite link
-works on other devices.
+It prints two addresses: `localhost` for this computer and your network IP for phones and laptops on the same
+Wi-Fi. Create the room from the network-IP address so the invite link works on the other devices.
 
-## Deploy on GitHub Pages
+## Releasing
 
-1. Push this repo to GitHub.
-2. **Settings → Pages → Build and deployment → Deploy from a branch → `main` / `/ (root)`**.
-3. Share `https://<user>.github.io/<repo>/` with the team. Each "Create a room" makes a new private link.
+`main` is for work in progress; the `release` branch is what's live. Every push to `release` runs the
+[deploy workflow](.github/workflows/deploy.yml), which publishes the game to GitHub Pages:
 
-Pages for private repositories needs a paid GitHub plan. On a free account, make the repo
-public first. The site itself is public either way; rooms stay private because of their
-random links.
+```bash
+git push origin main:release
+```
+
+The workflow ships only the game files and stamps every script and stylesheet URL with the commit, so after a
+release every player loads the new version instead of a mix of cached old files and new ones.
 
 ## Customize
 
-- **Words**: edit `js/words/en.js`, `es.js`, `de.js` (easy / medium / hard lists).
-- **New language**: copy one of those files, then register it in `js/words/index.js`.
-- **Timing & scoring**: constants at the top of `js/engine.js`.
+- **Words**: edit the easy / medium / hard lists in `js/words/en.js`, `es.js` and `de.js`.
+- **New language**: copy one of those files and register it in `js/words/index.js`.
+- **Timing and scoring**: constants at the top of `js/engine.js`.
+
+## Troubleshooting
+
+- **A teammate can't join**: some corporate networks and VPNs block peer-to-peer connections. Try without the
+  VPN or from another network.
+- **"That room doesn't exist anymore"**: the host closed their tab. The host creates a new room and shares the new
+  link.
+- **Something looks off right after a release**: reload the page so everyone runs the same version.
+
+## Contributing
+
+This is a closed project: **pull requests aren't accepted**. Found a bug, have an idea or a word list to suggest?
+[Open an issue](https://github.com/fredy-mederos/guess_my_mess/issues), all feedback is welcome.
 
 ## Project layout
 
 ```
 index.html          page skeleton
-css/base.css        theme (notebook / chalkboard), sketchy buttons & cards, home screen
+css/base.css        themes (notebook / chalkboard), sketchy cards and buttons, home screen
 css/game.css        room layout, board, toolbar, chat, overlays, responsive rules
-js/main.js          boot + glue between network, engine and UI
+js/main.js          boot and glue between network, engine and UI
 js/net.js           PeerJS transport: host star, heartbeats, reconnects
 js/engine.js        host-only game logic (the source of truth)
-js/board.js         canvas, brushes, fill, shapes, op replay
-js/toolbar.js       drawer's tools
+js/board.js         canvas, brushes, fill, shapes, undo by replay
+js/toolbar.js       the drawer's tools
+js/icons.js         hand-drawn line icons
 js/avatar.js        doodle avatar parts
 js/words/           word packs
-js/ui/              home, lobby, game overlays, chat
-serve.py            local dev server (no caching, prints LAN address)
+js/ui/              home, lobby, in-game overlays, chat
+serve.py            local dev server (no caching, prints the LAN address)
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Fredy Mederos
