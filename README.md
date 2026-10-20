@@ -84,6 +84,16 @@ python3 serve.py
 It prints two addresses: `localhost` for this computer and your network IP for phones and laptops on the same
 Wi-Fi. Create the room from the network-IP address so the invite link works on the other devices.
 
+## Tests
+
+```bash
+node --test
+```
+
+Plays real games in headless Chrome: a full 3-player game, the phone layout and the letter hints, plus a check
+of the word packs. All it needs is Node.js 22+ and Google Chrome. There's also a 20-player stress test and a
+script that retakes the screenshots above; see [tests/README.md](tests/README.md).
+
 ## Releasing
 
 `main` is for work in progress; the `release` branch is what's live. Every push to `release` runs the
@@ -141,6 +151,7 @@ js/avatar.js        doodle avatar parts
 js/words/           word packs
 js/ui/              home, character editor, lobby, in-game overlays, chat, voting gallery + results
 serve.py            local dev server (no caching, prints the LAN address)
+tests/              end-to-end tests in headless Chrome, stress test, README screenshots
 ```
 
 ## License
