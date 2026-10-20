@@ -154,10 +154,23 @@
 .word-choices .btn:nth-child(2n) { transform: rotate(1.5deg); }
 .word-choices .btn:nth-child(3n) { transform: rotate(-1.5deg); }
 .big-word { font-size: clamp(2rem, 6vw, 3rem); line-height: 1.1; margin: 4px 0 12px; }
-.gains { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; max-height: 40vh; overflow: auto; }
-.gains li { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 1.15rem; }
-.gains .plus { color: var(--good); min-width: 52px; text-align: left; }
+/* Reveal scores as a small table: points (right-aligned) | avatar | name; the table itself is centered */
+.gains {
+  list-style: none;
+  margin: 8px auto 0;
+  padding: 0;
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 4px 8px;
+  max-height: 40vh;
+  overflow: auto;
+  text-align: left;
+}
+.gains li { display: contents; font-size: 1.15rem; }
+.gains .plus { color: var(--good); text-align: right; }
 .gains .zero { color: var(--muted); }
+.gains .who { white-space: nowrap; }
 .waiting-avatar { display: inline-block; }
 
 /* ---------- podium ---------- */
@@ -305,14 +318,14 @@
 .tool-pick.sel { border-color: var(--ink); background: var(--accent); color: var(--accent-ink); }
 /* Inline tools + colors: only for a phone drawer (see drawer-mode below) */
 .tb-inline { display: none; }
-.tb-inline-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 2px 2px 6px; }
-.tb-inline-tools .tool-pick { min-width: 0; font-size: 0.9rem; padding: 5px 2px; white-space: nowrap; overflow: hidden; }
-.tb-inline-tools .tool-pick .ic { font-size: 1.35rem; }
+.tb-inline-tools { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; padding: 2px 0 6px; }
+.tb-inline-tools .tool-pick { min-width: 0; font-size: 0.68rem; padding: 5px 0 3px; gap: 0; white-space: nowrap; overflow: hidden; }
+.tb-inline-tools .tool-pick .ic { font-size: 1.3rem; }
 /* Latest chat lines for a phone drawer, in the space under the tools */
 .drawer-feed { display: none; width: var(--board-w, 100%); flex-direction: column; gap: 4px; }
 .drawer-feed .ticker { max-width: 100%; }
-.tb-inline-colors { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; padding: 2px 2px 4px; justify-items: center; }
-.tb-inline-colors .swatch { width: 24px; height: 24px; }
+.tb-inline-colors { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; padding: 2px 0 4px; justify-items: center; }
+.tb-inline-colors .swatch { width: 100%; max-width: 28px; height: auto; aspect-ratio: 1; }
 .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; justify-items: center; }
 .custom-color, .check { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
 .custom-color input { width: 40px; height: 32px; padding: 0; border: 2px solid var(--ink); border-radius: 6px; background: none; }
@@ -595,8 +608,12 @@
   #room.in-panel .lobby, #room.in-panel .panel { flex: none; min-height: auto; overflow: visible; }
   #room.in-game .stage { height: var(--stage-h, auto); }
   /* Drawer mode: no chat, every brush and color within thumb reach */
-  #room.drawer-mode { grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "top" "players" "stage"; }
-  #room.drawer-mode .chat { display: none; }
+  #room.drawer-mode { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "top" "stage"; }
+  #room.drawer-mode .chat, #room.drawer-mode .players { display: none; }
+  #room.drawer-mode .hint small { display: inline; margin-right: 8px; }
+  /* Keyboard up while guessing: drop the players strip so the drawing and your guess both fit */
+  #room.in-game.kb-open { grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "top" "stage" "chat"; }
+  #room.in-game.kb-open .players, #room.in-game.kb-open .hint small, #room.in-game.kb-open .react-bar { display: none; }
   #room.drawer-mode .tb-inline { display: block; }
   #room.drawer-mode .drawer-feed { display: flex; }
   #room.drawer-mode .tb-tool, #room.drawer-mode .tb-color { display: none; }

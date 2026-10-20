@@ -134,11 +134,13 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
         .sort((a, b) => (r.pts[b.id] || 0) - (r.pts[a.id] || 0));
       card = h('div.ov-card.card',
         h('p.muted', reasonIcon && icon(reasonIcon), ' ', reasonText),
-        h('h2', 'The word was'),
-        h('div.big-word', h('span.marker', r.word || '???')),
+        // Skipped before a word was picked: nothing to reveal
+        r.word ? [h('h2', 'The word was'), h('div.big-word', h('span.marker', r.word))] : h('h2', 'No drawing this time'),
+        // Points / avatar / name as table columns, so the scores line up
         h('ul.gains', rows.map((p) => h('li',
           r.pts[p.id] ? h('span.plus', `+${r.pts[p.id]}`) : h('span.plus.zero', '+0'),
-          av(p.avatar, 28), p.name, p.id === r.drawer ? icon('pencil') : ''))));
+          av(p.avatar, 28),
+          h('span.who', p.name, p.id === r.drawer ? [' ', icon('pencil')] : null)))));
     }
 
     els.overlay.hidden = !card;

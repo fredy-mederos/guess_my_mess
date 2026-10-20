@@ -185,11 +185,13 @@ function fitLayout() {
   const toolbarH = toolbarEl.hidden ? 0 : toolbarEl.offsetHeight + 12;
   if (isPhone() && roomEl.classList.contains('in-game')) {
     const drawerMode = roomEl.classList.contains('drawer-mode');
-    const chatSpace = drawerMode ? 0 : 120 + 8;
+    // With the keyboard up there's little room: keep just enough chat to see what you type
+    const chatSpace = drawerMode ? 0 : roomEl.classList.contains('kb-open') ? 112 : 128;
     const used = $('.topbar').offsetHeight + $('#players').offsetHeight + 16 + 16 + chatSpace;
     const avail = roomEl.clientHeight - used;
     const want = stage.clientWidth * 0.75 + toolbarH;
-    roomEl.style.setProperty('--stage-h', `${Math.max(160, Math.min(want, avail))}px`);
+    const min = roomEl.classList.contains('kb-open') ? 80 : 160; // typing: your guess beats board size
+    roomEl.style.setProperty('--stage-h', `${Math.max(min, Math.min(want, avail))}px`);
   }
   const w = stage.clientWidth;
   const hAvail = stage.clientHeight - toolbarH;
@@ -197,9 +199,20 @@ function fitLayout() {
   $('#play').style.setProperty('--board-w', `${Math.floor(boardW)}px`);
 }
 
+// The app always fills exactly the visible part of the screen. A phone keyboard shrinks that
+// (iOS covers the page, Android resizes it); when it takes a big bite while you're typing, the
+// room switches to a compact layout (.kb-open) so your guess stays visible above the keyboard.
+let fullH = 0;
+let fullW = 0;
 function syncViewport() {
   const vv = window.visualViewport;
-  document.documentElement.style.setProperty('--app-h', `${vv ? vv.height : innerHeight}px`);
+  const h = vv ? vv.height : innerHeight;
+  const w = vv ? vv.width : innerWidth;
+  if (Math.abs(w - fullW) > 2) { fullW = w; fullH = h; } // rotated or resized: new baseline
+  fullH = Math.max(fullH, h);
+  const typing = document.activeElement?.matches?.('input, textarea');
+  roomEl.classList.toggle('kb-open', isPhone() && !!typing && h < fullH - 120);
+  document.documentElement.style.setProperty('--app-h', `${h}px`);
   $('#app').style.transform = vv?.offsetTop ? `translateY(${vv.offsetTop}px)` : '';
   fitLayout();
 }
@@ -207,8 +220,16 @@ const refit = debounce(syncViewport, 30);
 addEventListener('resize', refit);
 visualViewport?.addEventListener('resize', refit);
 visualViewport?.addEventListener('scroll', refit);
+addEventListener('focusin', refit);
+addEventListener('focusout', refit);
 new ResizeObserver(refit).observe(roomEl);
 syncViewport();
+
+// Safety net: once the keyboard has slid up, make sure the box you're typing in is in view
+addEventListener('focusin', (e) => {
+  if (!isPhone() || !e.target.matches?.('input, textarea')) return;
+  setTimeout(() => e.target.scrollIntoView({ block: 'nearest' }), 350);
+});
 
 // ---------- screens ----------
 function showHome(opts = {}) {
