@@ -65,9 +65,9 @@ const inviteLink = () => `${location.origin}${location.pathname}#room=${room}`;
 const lobby = createLobby($('#lobby'), {
   onSettings: (settings) => send({ t: 'settings', settings }),
   onStart: () => send({ t: 'start' }),
-  onCopy: async (input) => {
-    const ok = await copyText(inviteLink(), input);
-    toast(ok ? 'Link copied! Paste it in your team chat' : 'Copy the link from the box');
+  onCopy: async () => {
+    const ok = await copyText(inviteLink());
+    toast(ok ? 'Link copied! Paste it in your team chat' : 'Couldn’t copy, long-press the link instead');
   },
   onResetHall: () => { if (confirm('Reset the hall of fame on this device?')) engine?.resetHall(); },
 });
@@ -241,7 +241,7 @@ function backHome(error) {
 
 // ---------- hosting ----------
 function createRoom(profile) {
-  room = randomId(12);
+  room = randomId(10); // 32^10 ≈ 10^15 possible rooms: unguessable, yet a short link
   history.replaceState(null, '', `#room=${room}`);
   startHost(profile, null);
 }

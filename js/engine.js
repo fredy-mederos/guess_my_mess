@@ -274,7 +274,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
       guesses: S.guessTimes.slice(),
       possible: online().filter((o) => o.id !== drawer.id).length,
       ms: now() - S.turnStart,
-      lines: S.ops.filter((o) => o.k === 's' || o.k === 'sh').length,
+      lines: S.ops.filter((o) => o.k === 's').length,
       colors: new Set(inked.map((o) => (o.b === 'rainbow' ? 'rainbow' : o.c))).size,
       undos: S.undos,
     });
@@ -288,15 +288,25 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
     const out = [];
     const add = (icon, title, who, detail) => out.push({ icon, title, who, detail });
 
-    const easy = minBy(cracked, (t) => t.guesses[0].ms);
-    if (easy) add('neon', 'Easiest word', `“${easy.word}”`, `guessed in ${secs(easy.guesses[0].ms)}`);
-    // Hardest: fewest people got it, then the slowest first guess
-    const hardness = (t) => (1 - t.guesses.length / Math.max(1, t.possible)) * 1e7 + (t.guesses[0]?.ms ?? t.ms);
-    const hard = turns.length > 1 ? maxBy(turns, hardness) : null;
-    if (hard && hard !== easy) add('think', 'Hardest word', `“${hard.word}”`, hard.guesses.length ? `took ${secs(hard.guesses[0].ms)} to crack` : 'nobody got it!');
+    const avg = (t) => t.guesses.reduce((sum, g) => sum + g.ms, 0) / t.guesses.length;
+    const share = (t) => t.guesses.length / Math.max(1, t.possible);
+    const howMany = (t) => `${t.guesses.length}/${t.possible} got it · avg ${secs(avg(t))}`;
 
+    // Easiest: the most people got it, then the quickest on average
+    const easy = maxBy(cracked, (t) => share(t) * 1e7 - avg(t));
+    if (easy) {
+      const solo = easy.guesses.length === 1;
+      add('neon', 'Easiest word', `“${easy.word}”`, solo ? `${name(easy.guesses[0].id)} got it in ${secs(easy.guesses[0].ms)}` : howMany(easy));
+    }
+    // Hardest: the fewest people got it, then the slowest on average
+    const hardness = (t) => (1 - share(t)) * 1e7 + (t.guesses.length ? avg(t) : t.ms);
+    const hard = turns.length > 1 ? maxBy(turns, hardness) : null;
+    if (hard && hard !== easy) add('think', 'Hardest word', `“${hard.word}”`, hard.guesses.length ? howMany(hard) : 'nobody got it!');
+
+    // The single quickest guess, unless the "Easiest word" note already told that exact story
     const fast = minBy(turns.flatMap((t) => t.guesses.map((g) => ({ ...g, word: t.word }))), (g) => g.ms);
-    if (fast) add('clock', 'Fastest guess', name(fast.id), `“${fast.word}” in ${secs(fast.ms)}`);
+    const sameStory = fast && easy && fast.word === easy.word && easy.guesses.length === 1;
+    if (fast && !sameStory) add('clock', 'Fastest guess', name(fast.id), `“${fast.word}” in ${secs(fast.ms)}`);
 
     const hits = {};
     for (const t of turns) for (const g of t.guesses) hits[g.id] = (hits[g.id] || 0) + 1;

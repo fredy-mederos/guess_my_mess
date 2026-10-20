@@ -2,9 +2,9 @@
 // same on a phone and a 4K screen. The drawer's ops stream out as they happen; everyone
 // else replays them. Undo simply drops the last op and replays the rest.
 //
-//   stroke: { k: 's',  id, b: brush, c: color, w: width, p: [x, y, x, y, ...] }
-//   fill:   { k: 'f',  id, x, y, c }
-//   shape:  { k: 'sh', id, s: 'line' | 'rect' | 'ellipse', c, w, f: filled, x1, y1, x2, y2 }
+//   stroke: { k: 's', id, b: brush, c: color, w: width, p: [x, y, x, y, ...] }
+//   fill:   { k: 'f', id, x, y, c }
+//   clear:  { k: 'c', id }
 import { seeded } from './util.js';
 
 export const W = 1200;
@@ -14,15 +14,13 @@ export const H = 900;
 // redrawn as one path while in progress (no dark blobs where pieces overlap)
 export const BRUSHES = {
   pen: { label: 'Pen', mode: 'inc' },
-  pencil: { label: 'Pencil', mode: 'inc' },
   marker: { label: 'Marker', mode: 'live' },
-  calli: { label: 'Ink nib', mode: 'inc' },
+  calli: { label: 'Ink', mode: 'inc' },
   spray: { label: 'Spray', mode: 'inc' },
   neon: { label: 'Neon', mode: 'live' },
   rainbow: { label: 'Rainbow', mode: 'inc' },
   eraser: { label: 'Eraser', mode: 'inc' },
 };
-export const SHAPES = ['line', 'rect', 'ellipse'];
 
 const pt = (op, i) => [op.p[2 * i] * W, op.p[2 * i + 1] * H];
 const count = (op) => op.p.length >> 1;
@@ -60,16 +58,6 @@ function segment(ctx, op, i) {
       ctx.lineWidth = op.w * 2;
       i ? line(ctx, a, b) : dot(ctx, b, op.w);
       break;
-    case 'pencil': {
-      const rnd = seeded(op.id + i);
-      ctx.globalAlpha = 0.8;
-      ctx.lineWidth = Math.max(1.4, op.w * 0.4);
-      for (let k = 0; k < 3; k++) {
-        const j = () => (rnd() - 0.5) * op.w * 0.5;
-        line(ctx, [a[0] + j(), a[1] + j()], [b[0] + j(), b[1] + j()]);
-      }
-      break;
-    }
     case 'spray': {
       const rnd = seeded(op.id + i);
       const radius = op.w * 1.8 + 4;
@@ -153,26 +141,6 @@ function drawLive(ctx, op) {
   ctx.restore();
 }
 
-function drawShape(ctx, op) {
-  const [x1, y1, x2, y2] = [op.x1 * W, op.y1 * H, op.x2 * W, op.y2 * H];
-  ctx.save();
-  ctx.strokeStyle = ctx.fillStyle = op.c;
-  ctx.lineWidth = op.w;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  if (op.s === 'line') {
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-  } else if (op.s === 'rect') {
-    ctx.rect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
-  } else {
-    ctx.ellipse((x1 + x2) / 2, (y1 + y2) / 2, Math.abs(x2 - x1) / 2, Math.abs(y2 - y1) / 2, 0, 0, Math.PI * 2);
-  }
-  op.f && op.s !== 'line' ? ctx.fill() : ctx.stroke();
-  ctx.restore();
-}
-
 // Paint-bucket fill. Anything not clearly inked counts as "paper", so fills slide under
 // the soft anti-aliased edges of lines instead of leaving a halo.
 function floodFill(ctx, op) {
@@ -229,8 +197,6 @@ function renderOp(ctx, op) {
     for (let i = 0; i < count(op); i++) segment(ctx, op, i);
   } else if (op.k === 'f') {
     floodFill(ctx, op);
-  } else if (op.k === 'sh') {
-    drawShape(ctx, op);
   } else if (op.k === 'c') {
     ctx.clearRect(0, 0, W, H); // "clear" is an op too, so it can be undone
   }
@@ -272,7 +238,7 @@ export function createBoard(root, { onEmit }) {
   let liveOp = null;       // translucent stroke currently being drawn (by anyone)
   let liveFrame = 0;
   let interactive = false;
-  const tool = { kind: 'brush', brush: 'pen', color: '#2b2533', size: 8, filled: false };
+  const tool = { kind: 'brush', brush: 'pen', color: '#2b2533', size: 8 }; // kind: 'brush' | 'fill'
 
   // ---------- rendering ----------
   function setBg(c) {
@@ -342,7 +308,6 @@ export function createBoard(root, { onEmit }) {
   // ---------- local drawing ----------
   let current = null;      // stroke in progress
   let pending = [];        // its points not yet sent
-  let shapeStart = null;
   let opSeq = 0;
   const newId = () => Date.now().toString(36) + (opSeq++).toString(36);
 
@@ -359,11 +324,6 @@ export function createBoard(root, { onEmit }) {
   }
   setInterval(flush, 40);
 
-  function shapeOp(end) {
-    return { k: 'sh', id: newId(), s: tool.kind, c: tool.color, w: tool.size, f: tool.filled,
-      x1: shapeStart[0], y1: shapeStart[1], x2: end[0], y2: end[1] };
-  }
-
   live.addEventListener('pointerdown', (e) => {
     if (!interactive || (e.pointerType === 'mouse' && e.button !== 0)) return;
     e.preventDefault();
@@ -375,11 +335,7 @@ export function createBoard(root, { onEmit }) {
       renderOp(ctx, op);
       return onEmit({ a: 'op', op });
     }
-    if (SHAPES.includes(tool.kind)) {
-      shapeStart = p;
-      return;
-    }
-    current = { k: 's', id: newId(), b: tool.brush, c: tool.color, w: tool.size, p: [...p] };
+    current ={ k: 's', id: newId(), b: tool.brush, c: tool.color, w: tool.size, p: [...p] };
     ops.push(current);
     pending = [];
     if (BRUSHES[current.b].mode === 'live') { liveOp = current; redrawLive(); } else segment(ctx, current, 0);
@@ -388,13 +344,7 @@ export function createBoard(root, { onEmit }) {
 
   live.addEventListener('pointermove', (e) => {
     moveCursor(e);
-    if (!interactive) return;
-    if (shapeStart) {
-      lctx.clearRect(0, 0, W, H);
-      drawShape(lctx, shapeOp(toNorm(e)));
-      return;
-    }
-    if (!current) return;
+    if (!interactive || !current) return;
     const events = e.getCoalescedEvents?.() || [e];
     for (const ev of events.length ? events : [e]) {
       const p = toNorm(ev);
@@ -405,15 +355,7 @@ export function createBoard(root, { onEmit }) {
     if (BRUSHES[current.b].mode === 'live') redrawLive();
   });
 
-  function finish(e) {
-    if (shapeStart) {
-      const op = shapeOp(toNorm(e));
-      shapeStart = null;
-      lctx.clearRect(0, 0, W, H);
-      ops.push(op);
-      renderOp(ctx, op);
-      onEmit({ a: 'op', op });
-    }
+  function finish() {
     if (!current) return;
     flush();
     onEmit({ a: 'end', id: current.id });
@@ -430,9 +372,7 @@ export function createBoard(root, { onEmit }) {
     if (!show) return;
     const r = live.getBoundingClientRect();
     const scale = r.width / W;
-    const brushW = tool.kind === 'brush'
-      ? tool.size * ({ eraser: 2, marker: 2.2, spray: 3.6 }[tool.brush] || 1)
-      : tool.size;
+    const brushW = tool.size * ({ eraser: 2, marker: 2.2, spray: 3.6 }[tool.brush] || 1);
     const size = Math.max(4, brushW * scale);
     Object.assign(cursor.style, {
       width: size + 'px', height: size + 'px',
@@ -449,7 +389,7 @@ export function createBoard(root, { onEmit }) {
     setInteractive(on) {
       interactive = on;
       root.classList.toggle('drawing', on);
-      if (!on) { current = null; shapeStart = null; cursor.hidden = true; }
+      if (!on) { current = null; cursor.hidden = true; }
     },
     undo() {
       if (!ops.length) return;

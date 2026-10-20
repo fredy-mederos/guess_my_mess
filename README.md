@@ -39,8 +39,8 @@ Share a link, play in the browser, no accounts and no server.
 - **Game setup**: word pack language; easy / mixed / medium / hard; 1 to 10 rounds;
   30 to 240 second turns; pick from 1 to 5 words; letter hints; "you're close" hints; custom team words, mixed
   in or on their own.
-- **Drawing tools**: pen, pencil, marker, ink nib, spray, neon, rainbow, eraser, fill bucket, line, box, oval,
-  24 colors plus a custom picker, brush size, paper color, undo and clear.
+- **Drawing tools**: pen, marker, ink, spray, neon, rainbow, eraser and fill bucket; 24 colors plus a custom
+  picker, brush size, paper color, undo and clear.
 - **Fair guessing**: correct answers are hidden from the chat, near misses get a private "so close!", and
   accents, spaces and hyphens don't matter (`arbol` = `árbol`, `standup` = `stand-up`). Players who already
   guessed can keep chatting without spoiling it.
@@ -122,7 +122,7 @@ css/game.css        room layout, board, toolbar, chat, overlays, responsive rule
 js/main.js          boot and glue between network, engine and UI
 js/net.js           PeerJS transport: host star, heartbeats, reconnects
 js/engine.js        host-only game logic (the source of truth)
-js/board.js         canvas, brushes, fill, shapes, undo by replay
+js/board.js         canvas, brushes, fill, undo by replay
 js/toolbar.js       the drawer's tools
 js/icons.js         hand-drawn line icons
 js/avatar.js        doodle avatar parts

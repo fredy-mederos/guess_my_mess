@@ -28,6 +28,29 @@
 }
 .hint small { display: block; font-size: 0.95rem; letter-spacing: 0.02em; color: var(--muted); line-height: 1; }
 .hint .known { letter-spacing: 0.06em; }
+/* Letter slots: one underline per letter, bigger gaps between words, words wrap as units */
+.slots {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px 18px;
+  padding-top: 4px;
+  letter-spacing: 0;
+  white-space: normal;
+  line-height: 1;
+}
+.slot-word { display: inline-flex; align-items: flex-end; gap: 5px; }
+.slot {
+  display: inline-block;
+  width: 0.78em;
+  height: 1.05em;
+  text-align: center;
+  border-bottom: 3px solid currentColor;
+  border-radius: 1px;
+}
+.slot.shown { color: var(--ink); border-bottom-color: var(--accent); }
+.sym { display: inline-block; min-width: 0.4em; text-align: center; }
 .timer { position: relative; width: 54px; height: 54px; flex: none; }
 .timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .timer-track { fill: var(--panel); stroke: var(--ink); stroke-width: 2.5; }
@@ -282,9 +305,9 @@
 .tool-pick.sel { border-color: var(--ink); background: var(--accent); color: var(--accent-ink); }
 /* Inline tools + colors: only for a phone drawer (see drawer-mode below) */
 .tb-inline { display: none; }
-.tb-inline-tools { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 2px 2px 6px; }
-.tb-inline-tools .tool-pick { min-width: 0; font-size: 0.74rem; padding: 4px 1px; white-space: nowrap; overflow: hidden; }
-.tb-inline-tools .tool-pick .ic { font-size: 1.25rem; }
+.tb-inline-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 2px 2px 6px; }
+.tb-inline-tools .tool-pick { min-width: 0; font-size: 0.9rem; padding: 5px 2px; white-space: nowrap; overflow: hidden; }
+.tb-inline-tools .tool-pick .ic { font-size: 1.35rem; }
 /* Latest chat lines for a phone drawer, in the space under the tools */
 .drawer-feed { display: none; width: var(--board-w, 100%); flex-direction: column; gap: 4px; }
 .drawer-feed .ticker { max-width: 100%; }
@@ -349,7 +372,13 @@
 .lobby .wide { grid-column: 1 / -1; }
 .invite-row { display: flex; gap: 8px; }
 .invite-row .input { font-size: 1rem; }
+/* The link gets the full card width (button underneath), so its start and its room code both show */
+.invite-row { flex-direction: column; align-items: flex-start; }
+.invite-link { width: 100%; display: flex; align-items: center; white-space: nowrap; overflow: hidden; cursor: pointer; }
+.invite-link .link-start { flex: 0 1 auto; min-width: 4em; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
+.invite-link .link-end { flex: none; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.settings-grid .select { padding: 0.3em 0.5em; font-size: 1.08rem; }
 .setting > span { display: block; font-size: 1rem; color: var(--ink-soft); margin-bottom: 2px; }
 .setting.full { grid-column: 1 / -1; }
 .setting .check { margin-top: 4px; }
@@ -560,6 +589,9 @@
     border-bottom: 2px dashed color-mix(in srgb, var(--ink) 18%, transparent);
   }
   #room.in-panel .stage { min-height: auto; }
+  /* "Lobby" / "Voting" / "Final scores" just repeat the headline next to them; give it the room */
+  #room.in-panel .round { display: none; }
+  #room.in-panel .hint { text-align: left; font-size: 1.2rem; letter-spacing: 0.04em; white-space: normal; }
   #room.in-panel .lobby, #room.in-panel .panel { flex: none; min-height: auto; overflow: visible; }
   #room.in-game .stage { height: var(--stage-h, auto); }
   /* Drawer mode: no chat, every brush and color within thumb reach */
@@ -571,6 +603,13 @@
   .chat { min-height: 110px; }
   .brand { display: none; }
   .topbar { gap: 8px; min-height: 46px; }
+  /* In the game the word hint is the most important line: give it its own full-width row */
+  #room.in-game .topbar { flex-wrap: wrap; row-gap: 2px; }
+  #room.in-game .timer { margin-left: auto; }
+  #room.in-game .hint { order: 10; flex: 1 0 100%; white-space: normal; letter-spacing: 0.08em; }
+  .slots { gap: 6px 14px; }
+  .slot-word { gap: 4px; }
+  .slot { width: 0.74em; }
   .round { font-size: 1rem; }
   .hint { font-size: 1.35rem; letter-spacing: 0.16em; }
   .timer { width: 46px; height: 46px; }

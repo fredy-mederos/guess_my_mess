@@ -121,15 +121,19 @@ export function levenshtein(a, b) {
   return prev[b.length];
 }
 
-export async function copyText(text, fallbackInput) {
+export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
     // The clipboard API needs https; plain-http LAN testing falls back to the old way
-    if (!fallbackInput) return false;
-    fallbackInput.select();
-    return document.execCommand('copy');
+    const area = Object.assign(document.createElement('textarea'), { value: text, readOnly: true });
+    area.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.append(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
   }
 }
 

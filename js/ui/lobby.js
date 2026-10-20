@@ -16,8 +16,9 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
     lang: h('select.select', options(Object.entries(LANGUAGES).map(([k, l]) => [k, l.label]))),
     difficulty: h('select.select', options(Object.entries(DIFFICULTY))),
     rounds: h('select.select', options([1, 2, 3, 4, 5, 6, 8, 10].map((n) => [n, `${n} round${n > 1 ? 's' : ''}`]))),
-    drawTime: h('select.select', options(TIMES.map((s) => [s, `${s} seconds`]))),
-    choices: h('select.select', options([1, 2, 3, 4, 5].map((n) => [n, n === 1 ? 'No choice (1 word)' : `Pick from ${n}`]))),
+    // Short labels: the field names above already explain them, and the selects are narrow
+    drawTime: h('select.select', options(TIMES.map((s) => [s, `${s} sec`]))),
+    choices: h('select.select', options([1, 2, 3, 4, 5].map((n) => [n, n === 1 ? '1 word' : `${n} words`]))),
     hints: h('select.select', options(HINTS.map((l, i) => [i, l]))),
     closeHints: h('input', { type: 'checkbox' }),
     customWords: h('textarea.textarea', {
@@ -28,7 +29,10 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
     customOnly: h('input', { type: 'checkbox' }),
   };
   const customCount = h('span.muted');
-  const link = h('input.input', { readOnly: true, 'aria-label': 'Invite link' });
+  // The room code at the end is what matters, so the middle of the address gets trimmed instead
+  const linkStart = h('span.link-start');
+  const linkEnd = h('span.link-end');
+  const link = h('div.input.invite-link', { 'aria-label': 'Invite link (tap to copy)', onclick: () => onCopy() }, linkStart, linkEnd);
   // Kept as stable elements (not rebuilt per update) so clicks never land on a stale button
   const startBtn = h('button.btn.pink.big', { type: 'button', onclick: () => onStart() }, 'Start the game!');
   const startNote = h('p');
@@ -64,7 +68,7 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
   root.replaceChildren(
     h('section.card.tape',
       h('h3', h('span.marker', 'Invite your team')),
-      h('div.invite-row', link, h('button.btn.primary.small', { type: 'button', onclick: () => onCopy(link) }, 'Copy link')),
+      h('div.invite-row', link, h('button.btn.primary.small', { type: 'button', title: 'Copy the invite link', onclick: () => onCopy() }, icon('link'), 'Copy link')),
       h('p.muted', 'Anyone with this link can join while the host keeps this room open.'),
       startArea,
     ),
@@ -93,7 +97,10 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
   return {
     update(st, { host, inviteLink }) {
       isHost = host;
-      link.value = inviteLink;
+      const [base, room] = inviteLink.split('#');
+      linkStart.textContent = base.replace(/^https?:\/\//, '');
+      linkEnd.textContent = room ? `#${room}` : '';
+      link.title = inviteLink;
       for (const [key, el] of Object.entries(f)) {
         el.disabled = !host;
         if (document.activeElement === el) continue; // don't fight the host's typing

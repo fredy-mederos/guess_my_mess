@@ -2,7 +2,7 @@
 // Wide screens: compact row with pop-up trays plus quick colors. Phones in drawer mode
 // (chat hidden) show every tool and color inline instead — see .tb-inline in game.css.
 import { h, $$ } from './util.js';
-import { BRUSHES, SHAPES } from './board.js';
+import { BRUSHES } from './board.js';
 import { icon } from './icons.js';
 
 export const PALETTE = [
@@ -16,11 +16,10 @@ export const BACKGROUNDS = [
   '#ffd8a8', '#99e9f2', '#1b2a4a', '#2f4f3e', '#22252b', '#111111',
 ];
 
+// Eight tools on purpose: seven brushes plus the paint bucket (a 4×2 grid on phones)
 const ICONS = {
-  pen: 'pen', pencil: 'pencil', marker: 'marker', calli: 'nib', spray: 'spray', neon: 'neon', rainbow: 'rainbow', eraser: 'eraser',
-  fill: 'bucket', line: 'line', rect: 'rect', ellipse: 'ellipse',
+  pen: 'pen', marker: 'marker', calli: 'nib', spray: 'spray', neon: 'neon', rainbow: 'rainbow', eraser: 'eraser', fill: 'bucket',
 };
-const TOOL_LABELS = { fill: 'Fill', line: 'Line', rect: 'Box', ellipse: 'Oval' };
 
 export function createToolbar(root, board) {
   const tool = board.tool;
@@ -31,25 +30,21 @@ export function createToolbar(root, board) {
   const bgBtn = h('button.tb-btn', { type: 'button', title: 'Paper color' }, h('span.bg-chip'), h('span.tb-label', 'Paper'));
   const sizeInput = h('input.size-range', { type: 'range', min: 2, max: 60, value: tool.size, 'aria-label': 'Brush size' });
   const sizeDot = h('span.size-dot');
-  const filledBox = h('input', { type: 'checkbox', onchange: (e) => setFilled(e.target.checked) });
-  const filledChip = h('button.tool-pick.filled-chip', { type: 'button', title: 'Filled shapes', onclick: () => setFilled(!tool.filled) },
-    icon('filled'), h('span', 'Filled'));
   const custom = h('input', { type: 'color', value: tool.color, oninput: (e) => setColor(e.target.value), 'aria-label': 'Custom color' });
 
   const pick = (key, label, onclick, data) =>
     h('button.tool-pick', { type: 'button', title: label, dataset: data, onclick }, icon(ICONS[key]), h('span', label));
-  const brushPicks = () => Object.entries(BRUSHES).map(([key, b]) => pick(key, b.label, () => setTool('brush', key), { brush: key }));
-  const toolPicks = () => ['fill', ...SHAPES].map((key) => pick(key, TOOL_LABELS[key], () => setTool(key), { kind: key }));
+  const toolPicks = () => [
+    ...Object.entries(BRUSHES).map(([key, b]) => pick(key, b.label, () => setTool('brush', key), { brush: key })),
+    pick('fill', 'Fill', () => setTool('fill'), { kind: 'fill' }),
+  ];
   const swatch = (c, onclick) =>
     h('button.swatch', { type: 'button', style: { '--c': c }, title: c, dataset: { color: c }, onclick });
 
   // ---------- pop-up trays (wide screens) ----------
   const toolPop = h('div.pop.pop-tools',
-    h('div.pop-title', 'Brushes'),
-    h('div.tool-grid', brushPicks()),
     h('div.pop-title', 'Tools'),
-    h('div.tool-grid', toolPicks()),
-    h('label.check', filledBox, 'Filled shapes'));
+    h('div.tool-grid', toolPicks()));
   const colorPop = h('div.pop.pop-colors',
     h('div.pop-title', 'Colors'),
     h('div.swatches', PALETTE.map((c) => swatch(c, () => { setColor(c); close(); }))),
@@ -60,7 +55,7 @@ export function createToolbar(root, board) {
 
   // ---------- inline panel (phones while drawing) ----------
   const inline = h('div.tb-inline',
-    h('div.tb-inline-tools', brushPicks(), toolPicks(), filledChip),
+    h('div.tb-inline-tools', toolPicks()),
     h('div.tb-inline-colors', PALETTE.map((c) => swatch(c, () => setColor(c)))));
 
   function toggle(pop) {
@@ -94,21 +89,14 @@ export function createToolbar(root, board) {
     refresh();
   }
 
-  function setFilled(on) {
-    tool.filled = on;
-    refresh();
-  }
-
   function refresh() {
-    const key = tool.kind === 'brush' ? tool.brush : tool.kind;
-    toolBtn.replaceChildren(icon(ICONS[key]), h('span.tb-label', tool.kind === 'brush' ? BRUSHES[key].label : TOOL_LABELS[key]));
+    const key = tool.kind === 'brush' ? tool.brush : 'fill';
+    toolBtn.replaceChildren(icon(ICONS[key]), h('span.tb-label', tool.kind === 'brush' ? BRUSHES[key].label : 'Fill'));
     colorBtn.style.setProperty('--c', tool.color);
     bgBtn.style.setProperty('--c', board.bg);
     sizeDot.style.setProperty('--s', Math.max(3, Math.min(30, tool.size / 2)) + 'px');
     sizeDot.style.setProperty('--c', tool.color);
     custom.value = /^#[0-9a-f]{6}$/i.test(tool.color) ? tool.color : '#000000';
-    filledBox.checked = tool.filled;
-    filledChip.classList.toggle('sel', tool.filled);
     $$('.tool-pick[data-brush], .tool-pick[data-kind]', root).forEach((b) =>
       b.classList.toggle('sel', b.dataset.brush ? tool.kind === 'brush' && tool.brush === b.dataset.brush : tool.kind === b.dataset.kind));
     $$('.swatch', root).forEach((s) =>
@@ -151,7 +139,7 @@ export function createToolbar(root, board) {
   return {
     refresh,
     reset() {
-      Object.assign(tool, { kind: 'brush', brush: 'pen', color: '#2b2533', size: 8, filled: false });
+      Object.assign(tool, { kind: 'brush', brush: 'pen', color: '#2b2533', size: 8 });
       sizeInput.value = tool.size;
       close();
       refresh();

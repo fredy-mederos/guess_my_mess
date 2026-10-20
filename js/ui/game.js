@@ -51,6 +51,16 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
   }
 
   // ---------- top bar ----------
+  // The hidden word as one underline per letter; words stay together and wrap as units,
+  // revealed hint letters sit in their slot, and hyphens/apostrophes are shown as-is
+  function slots(mask, letters) {
+    return h('span.slots', { 'aria-label': `${letters} letters` },
+      mask.split(' ').filter(Boolean).map((word) => h('span.slot-word', [...word].map((ch) =>
+        (ch === '_' ? h('span.slot')
+          : /[\p{L}\p{N}]/u.test(ch) ? h('span.slot.shown', ch)
+            : h('span.sym', ch))))));
+  }
+
   function renderTop(st) {
     const drawer = st.players.find((p) => p.id === st.drawer);
     const me = st.players.find((p) => p.id === st.me);
@@ -67,12 +77,12 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
     else if (st.phase === 'drawing' && st.me === st.drawer) hint = [h('small', 'draw this'), h('span.known', st.word)];
     else if (st.phase === 'drawing' && me?.guessed) hint = [h('small', 'you got it!'), h('span.known', st.word)];
     else if (st.phase === 'drawing') {
-      const letters = [...st.hint].filter((c) => c !== ' ' && c !== '-').length;
-      hint = [h('small', `guess this · ${letters} letters`), h('span', st.hint)];
+      const letters = [...st.hint].filter((c) => /[\p{L}\p{N}_]/u.test(c)).length;
+      hint = [h('small', `guess this · ${letters} letters`), slots(st.hint, letters)];
     } else if (st.phase === 'reveal') hint = [h('small', 'the word was'), h('span.known', st.results?.word || '…')];
     else if (st.phase === 'voting') {
       const left = st.maxVotes - st.myVotes.length;
-      hint = [h('small', 'vote for the best drawings'), h('span.known', icon('heart'), ` ${left} left`)];
+      hint = [h('small', 'pick your favorites'), h('span.known', icon('heart'), ` ${left} left`)];
     } else hint = [h('small', ' '), h('span.known', icon('trophy'), ' Game over')];
     els.hint.replaceChildren(...hint);
 
