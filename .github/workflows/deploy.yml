@@ -1,0 +1,48 @@
+# Publishes the game to GitHub Pages whenever the `release` branch moves.
+# Ship a new version with:  git push origin main:release
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer release replaces one that's still queued
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build site
+        run: |
+          mkdir _site
+          cp -r index.html css js _site/
+          # Stamp every module/stylesheet URL with this commit so browsers never mix a cached
+          # old module with new ones after a release (host and guests must run the same code)
+          v="${GITHUB_SHA::8}"
+          find _site/js -name '*.js' -exec sed -i -E "s#(from '\.{1,2}/[^']+\.js)'#\1?v=${v}'#g" {} +
+          sed -i -E "s#(href=\"css/[^\"]+\.css)\"#\1?v=${v}\"#g; s#(src=\"js/main\.js)\"#\1?v=${v}\"#g" _site/index.html
+          echo "Stamped version ${v}:"
+          grep -rho "?v=${v}" _site | wc -l
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
