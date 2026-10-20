@@ -2,7 +2,7 @@
 // the UI, and keeps the layout fitted to the screen (including phone keyboards).
 import { $, h, store, clientId, randomId, copyText, debounce } from './util.js';
 import { hostRoom, joinRoom } from './net.js';
-import { createEngine } from './engine.js';
+import { createEngine, MAX_PLAYERS } from './engine.js';
 import { createBoard } from './board.js';
 import { createToolbar } from './toolbar.js';
 import { renderHome } from './ui/home.js';
@@ -30,6 +30,8 @@ let isHosting = false;
 let prevPhase = null;
 let prevDrawer = null;
 let myProfile = null;     // { name, avatar }; also what a reconnect re-sends
+// ?debug in the address exposes the latest game state (read-only) for automated tests
+if (new URLSearchParams(location.search).has('debug')) window.__gmm = { state: () => st };
 
 // ---------- theme & sound ----------
 const savedTheme = store.get('gmm:theme');
@@ -133,7 +135,7 @@ function onMessage(msg) {
       break;
     case 'gallery': if (msg.reset) gallery.reset(); break;
     case 'kicked': backHome('The host removed you from the room.'); break;
-    case 'full': backHome('This room is full (16 players max).'); break;
+    case 'full': backHome(`This room is full (${MAX_PLAYERS} players max).`); break;
   }
 }
 
@@ -160,7 +162,7 @@ function render() {
 
   chat.setMode(st.phase !== 'drawing' ? (st.phase === 'lobby' ? 'Say hi to the team…' : 'Chat…')
     : amDrawer ? 'Chat (no spoilers!)'
-      : me?.guessed ? 'Chat with the others who got it'
+      : me?.guessed ? 'You got it! Chat away…'
         : 'Type your guess…');
 
   if (st.phase !== prevPhase) {
@@ -309,6 +311,7 @@ function joinExisting(profile) {
   store.set('gmm:joined', room, sessionStorage);
   showHome({ busy: true });
   send = (msg) => net?.send(msg);
+  addEventListener('pagehide', () => net?.send({ t: 'bye' }));
   net = joinRoom(room, cid, {
     onOpen: () => send({ t: 'hello', ...profile }),
     onMessage,

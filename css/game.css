@@ -86,7 +86,7 @@
 .player .rank { color: var(--muted); font-size: 0.95rem; text-align: right; }
 .player .who { min-width: 0; line-height: 1.1; }
 .player .name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.1rem; }
-.player .pts { font-size: 0.95rem; color: var(--ink-soft); }
+.player .pts { font-size: 0.95rem; color: var(--ink-soft); white-space: nowrap; }
 .player .badge { font-size: 1.1rem; color: var(--ink-soft); }
 .player.guessed .badge { color: var(--good); }
 .player.me .name { text-decoration: underline wavy var(--accent); text-underline-offset: 4px; }
@@ -190,11 +190,12 @@
   border-bottom: 0;
   border-radius: 10px 14px 0 0 / 14px 10px 0 0;
 }
-.step.p1 .block { height: 110px; background: var(--accent); color: var(--accent-ink); }
-.step.p2 .block { height: 78px; background: #dee2e6; color: #2b2533; }
-.step.p3 .block { height: 56px; background: #f4c095; color: #2b2533; }
+.step.p1 .block { height: 118px; background: var(--accent); color: var(--accent-ink); }
+.step.p2 .block { height: 92px; background: #dee2e6; color: #2b2533; }
+.step.p3 .block { height: 76px; background: #f4c095; color: #2b2533; padding-bottom: 6px; }
 .step.p1 svg.avatar { animation: wiggle 1.4s ease-in-out infinite; }
 .rest { list-style: none; padding: 0; margin: 6px 0 0; color: var(--ink-soft); }
+.rest.cols { columns: 2; column-gap: 28px; }
 .podium-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
 .confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
@@ -494,6 +495,9 @@
 .award h3 .ic { vertical-align: -0.15em; }
 .best-list { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
 .best-pic { margin: 0; flex: 1 1 320px; max-width: 620px; display: flex; flex-direction: column; gap: 8px; }
+.best-list.many { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.best-list.many .best-pic { max-width: none; }
+.best-list.many figcaption { font-size: 1rem; gap: 6px; }
 .best-pic img {
   width: 100%;
   aspect-ratio: 4 / 3;

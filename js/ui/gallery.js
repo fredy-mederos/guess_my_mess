@@ -70,14 +70,15 @@ export function createGallery(els, { onVote, onDone, onShowResults, onPlayAgain,
       h('div.block', medal(place), h('small', p.score)));
     return [
       h('div.podium', step(p2, 'p2', 2), step(p1, 'p1', 1), step(p3, 'p3', 3)),
-      rest.length ? h('ol.rest', { start: 4 }, rest.map((p) => h('li', `${p.name} · ${p.score}`))) : null,
+      rest.length ? h(`ol.rest${rest.length > 6 ? '.cols' : ''}`, { start: 4 }, rest.map((p) => h('li', `${p.name} · ${p.score}`))) : null,
     ];
   }
 
   function bestDrawings(st) {
     const best = st.best.map((id) => drawings.get(id)).filter(Boolean);
     if (!best.length) return h('p.muted', 'No hearts were given this time.');
-    return h('div.best-list', best.map((d) => h('figure.best-pic',
+    // A tie shows the winners side by side instead of a tower of full-size pictures
+    return h(`div.best-list${best.length > 1 ? '.many' : ''}`, best.map((d) => h('figure.best-pic',
       pic(d),
       h('figcaption',
         h('span.caption', byLine(d)),

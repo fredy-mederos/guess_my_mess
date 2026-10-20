@@ -11,7 +11,7 @@ export const DEFAULT_SETTINGS = {
   hints: 1, closeHints: true, customWords: '', customOnly: false,
 };
 export const REACTIONS = ['thumbs', 'laugh', 'fire', 'heart', 'wow', 'think']; // icon names
-export const MAX_PLAYERS = 16;
+export const MAX_PLAYERS = 24;
 
 const CHOOSE_MS = 15000;
 const REVEAL_MS = 6000;
@@ -540,6 +540,10 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
       case 'chat': return onChat(p, msg.text);
       case 'd': return onDraw(p, msg);
       case 'profile': return updateProfile(p, msg);
+      // A guest closing their tab says goodbye, so they don't linger until the heartbeat times out
+      case 'bye':
+        if (!isHost) leave(id);
+        return;
       case 'vote':
         if (S.phase === 'voting') vote(p, msg.id);
         return;
