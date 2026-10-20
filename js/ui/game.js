@@ -43,7 +43,7 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
             h('span.name', p.name),
             h('span.pts', inGame ? `${p.score} pts` : p.id === st.host ? 'host' : 'ready'),
             gain ? h('span.gain', ` +${gain}`) : null),
-          h('span.badge', badge),
+          badge ? h('span.badge', badge) : null,
           amHost && p.id !== st.me
             ? h('button.kick', { type: 'button', title: `Remove ${p.name}`, onclick: () => onKick(p) }, '✕')
             : null);
