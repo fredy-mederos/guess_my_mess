@@ -93,21 +93,19 @@ reach each other directly.
 
 ```mermaid
 flowchart TB
-    signal["PeerJS server<br/>0.peerjs.com"]
-    stun["STUN server<br/>stun.l.google.com"]
-    subgraph room["A room: every guest connects to the host"]
-        g3["Guest on mobile data"]
-        g1["Guest"]
-        g2["Guest"]
-        host["Host's browser<br/>game engine: turns, timer,<br/>secret word, guesses, scores"]
+    subgraph internet["On the internet: free public services"]
+        pages["GitHub Pages<br/>the game files"]
+        peerjs["PeerJS server<br/>introduces the browsers"]
+        relay["TURN relay<br/>when there's no direct route"]
     end
-    turn["TURN relay<br/>eu-0.turn.peerjs.com<br/>us-0.turn.peerjs.com"]
-    signal -. "sets up the connections" .- room
-    stun -. "“what's my public address?”" .- room
-    g1 <== "direct" ==> host
-    g2 <== "direct" ==> host
-    g3 <-. "relayed" .-> turn
-    turn <-.-> host
+    subgraph devices["On the players' devices"]
+        guests["Guests' browsers"]
+        host["Host's browser<br/>the game server"]
+    end
+    pages -- "load the game" --> devices
+    peerjs -. "find each other" .- devices
+    relay -. "relay, if needed" .- devices
+    guests <== "play, over WebRTC" ==> host
 ```
 
 | Piece | What it does | What it sees |
@@ -120,41 +118,22 @@ flowchart TB
 
 ### Joining a room
 
-```mermaid
-sequenceDiagram
-    participant G as Guest's browser
-    participant P as PeerJS server
-    participant H as Host's browser
-    Note over H: Creates room k7m2x9pq4d
-    H->>P: WebSocket: register as guessmymess-v1-k7m2x9pq4d
-    Note over G: Opens the invite link …#35;room=k7m2x9pq4d
-    G->>P: Get a random ID, open a WebSocket
-    G->>P: OFFER to guessmymess-v1-k7m2x9pq4d, with this tab's client ID
-    P->>H: OFFER
-    H-->>P: ANSWER
-    P-->>G: ANSWER
-    Note over G,H: Each browser's ICE agent gathers addresses to try: on the local network, public (from STUN), on the relay (from TURN)
-    G->>P: CANDIDATE, CANDIDATE…
-    P->>H: CANDIDATE, CANDIDATE…
-    H-->>P: CANDIDATE, CANDIDATE…
-    P-->>G: CANDIDATE, CANDIDATE…
-    G->>H: Connectivity checks on every pair of addresses: the best one wins, direct before relayed
-    Note over G,H: Encrypted data channel open. The game never goes through the PeerJS server.
-    G->>H: hello: name and doodle
-    H-->>G: welcome, the game as this player may see it, the drawing so far, the gallery, the chat
-    loop Every 4 seconds
-        H->>G: ping
-        G-->>H: pong
-    end
-```
+1. The host's browser registers the room with the PeerJS server, as `guessmymess-v1-<room>`, over a WebSocket it
+   keeps open.
+2. A guest's browser opens the invite link and asks the PeerJS server to reach that ID. Through it, the two
+   browsers swap an offer, an answer and the addresses they can be reached at: on the local network, their public
+   address (from STUN) and one on the TURN relay.
+3. Each browser's ICE agent, the part of WebRTC that finds a route, tries those addresses and keeps the best one:
+   direct when it can (same Wi-Fi, most home routers), the relay when it must (mobile data, strict office
+   networks). When nothing works, the guest is told it's the network (see [Troubleshooting](#troubleshooting)).
+4. A data channel opens between the two browsers, and the PeerJS server is out of the game from then on. The guest
+   says hello, and the host sends the game as that player may see it, the drawing so far, the gallery and the
+   chat, then pings it every 4 seconds.
 
-Finding a route is WebRTC's ICE (Interactive Connectivity Establishment). A direct route works on the same Wi-Fi
-and through most home routers; phones on mobile data and strict office networks often need the relay, and when
-nothing works the guest is told it's the network (see [Troubleshooting](#troubleshooting)). The data channel is
-encrypted end to end (DTLS), so the relay only passes along packets it can't read, and it's reliable and ordered
-like TCP, so strokes arrive whole and in order. Messages are plain objects packed in PeerJS's binary format;
-anything over 16 KB goes in chunks. A first join keeps knocking for 20 seconds, in case the host was away for a
-moment.
+The data channel is encrypted end to end (DTLS), so the relay only passes along packets it can't read. It's
+reliable and ordered like TCP, so strokes arrive whole and in order; PeerJS packs each message in a binary format
+and splits anything over 16 KB into chunks. A first join keeps knocking for 20 seconds, in case the host was away
+for a moment.
 
 ### During a game
 
