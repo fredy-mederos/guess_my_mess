@@ -58,7 +58,7 @@ Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75
 ## Features
 
 - **Private rooms for up to 24 players**: every room gets a random, unguessable link. The room ID lives after
-  the `#`, so it never reaches any web server. Stress-tested with 20 players on phones, laptops and tablets,
+  the `#`, so it never reaches the web server. Stress-tested with 20 players on phones, laptops and tablets,
   including players dropping out and the host reloading mid-game.
 - **Word packs**: 600 hand-picked words each in English, Español, Deutsch, Português and Français (easy, medium
   and hard: objects, animals, food, jobs, idioms and some office and car life). The host's device remembers recent
@@ -85,21 +85,93 @@ Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75
 
 ## How it works
 
-The site is just static files, so GitHub Pages can host it. Multiplayer is **peer-to-peer** over WebRTC:
+The site is just static files, so GitHub Pages can host it. There's no game server to run either: the browser
+that creates the room **is the game server**. The other players connect straight to it over
+[WebRTC](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API), the peer-to-peer technology behind video
+calls. A few free public servers help the browsers find each other, or pass the traffic along when they can't
+reach each other directly.
 
-```
-              ┌──────── host's browser ────────┐
-   guest <--> │  game engine: turns, timer,    │ <--> guest
-   guest <--> │  secret word, guesses, scores  │ <--> guest
-              └────────────────────────────────┘
+```mermaid
+flowchart TB
+    signal["PeerJS server<br/>0.peerjs.com"]
+    stun["STUN server<br/>stun.l.google.com"]
+    subgraph room["A room: every guest connects to the host"]
+        g3["Guest on mobile data"]
+        g1["Guest"]
+        g2["Guest"]
+        host["Host's browser<br/>game engine: turns, timer,<br/>secret word, guesses, scores"]
+    end
+    turn["TURN relay<br/>eu-0.turn.peerjs.com<br/>us-0.turn.peerjs.com"]
+    signal -. "sets up the connections" .- room
+    stun -. "“what's my public address?”" .- room
+    g1 <== "direct" ==> host
+    g2 <== "direct" ==> host
+    g3 <-. "relayed" .-> turn
+    turn <-.-> host
 ```
 
-- The browser that creates the room **is the game server**. It holds the secret word and sends each player only
-  what they're allowed to see.
-- The free public [PeerJS](https://peerjs.com) server only introduces browsers to each other. Drawings, guesses and
-  chat travel directly between players, encrypted. When two networks can't reach each other directly (phones on
-  mobile data, mostly), PeerJS's free relay passes the traffic along, still encrypted.
-- **The host must keep the tab open.** Closing it ends the room; a reload is fine.
+| Piece | What it does | What it sees |
+| --- | --- | --- |
+| **GitHub Pages** | Serves the game files. The [PeerJS](https://peerjs.com) library comes from unpkg, the fonts from Google Fonts. | Someone loading the game. The room ID is after the `#` in the link, which browsers never send. |
+| **PeerJS server** (`0.peerjs.com`) | Signaling: every browser keeps a WebSocket open to it and registers an ID, and it passes the connection setup between them. | The IDs (the host's contains the room ID) and the setup messages: network addresses and encryption fingerprints. Never the game. |
+| **STUN server** (`stun.l.google.com`) | Tells a browser the public address the internet sees for it, so two browsers behind home routers can reach each other. | Your public IP address. |
+| **TURN relay** (`eu-0` / `us-0.turn.peerjs.com`) | Plan B when there's no direct route (mobile data and strict office networks, mostly): forwards the packets between the two browsers. Free and best-effort. | Encrypted packets it can't read. |
+| **Host's browser** | Runs the game engine and relays the game to everyone. | Everything: it *is* the game. |
+
+### Joining a room
+
+```mermaid
+sequenceDiagram
+    participant G as Guest's browser
+    participant P as PeerJS server
+    participant H as Host's browser
+    Note over H: Creates room k7m2x9pq4d
+    H->>P: WebSocket: register as guessmymess-v1-k7m2x9pq4d
+    Note over G: Opens the invite link …#35;room=k7m2x9pq4d
+    G->>P: Get a random ID, open a WebSocket
+    G->>P: OFFER to guessmymess-v1-k7m2x9pq4d, with this tab's client ID
+    P->>H: OFFER
+    H-->>P: ANSWER
+    P-->>G: ANSWER
+    Note over G,H: Each browser's ICE agent gathers addresses to try: on the local network, public (from STUN), on the relay (from TURN)
+    G->>P: CANDIDATE, CANDIDATE…
+    P->>H: CANDIDATE, CANDIDATE…
+    H-->>P: CANDIDATE, CANDIDATE…
+    P-->>G: CANDIDATE, CANDIDATE…
+    G->>H: Connectivity checks on every pair of addresses: the best one wins, direct before relayed
+    Note over G,H: Encrypted data channel open. The game never goes through the PeerJS server.
+    G->>H: hello: name and doodle
+    H-->>G: welcome, the game as this player may see it, the drawing so far, the gallery, the chat
+    loop Every 4 seconds
+        H->>G: ping
+        G-->>H: pong
+    end
+```
+
+Finding a route is WebRTC's ICE (Interactive Connectivity Establishment). A direct route works on the same Wi-Fi
+and through most home routers; phones on mobile data and strict office networks often need the relay, and when
+nothing works the guest is told it's the network (see [Troubleshooting](#troubleshooting)). The data channel is
+encrypted end to end (DTLS), so the relay only passes along packets it can't read, and it's reliable and ordered
+like TCP, so strokes arrive whole and in order. Messages are plain objects packed in PeerJS's binary format;
+anything over 16 KB goes in chunks. A first join keeps knocking for 20 seconds, in case the host was away for a
+moment.
+
+### During a game
+
+- **A star around the host.** Every guest has a single connection, to the host. The drawer's strokes, the guesses
+  and the chat all go to the host, which passes them on; with 24 players, the host holds 23 connections.
+- **Everyone gets their own view.** The engine sends each player only what they're allowed to see: the secret word
+  reaches the drawer, the players who already guessed it and, at the reveal, everyone. A right guess never shows up
+  in the chat.
+- **Drawings travel as strokes**, not pixels: points in board coordinates (0 to 1), sent in batches every 40 ms,
+  so a drawing looks the same on a phone and on a 4K screen. Fills, undo, redo, clear and the paper color travel
+  the same way, and a player who joins mid-turn gets the drawing so far, 25 strokes per message.
+- **Heartbeats.** A link that's quiet for 14 seconds counts as dead. The host marks the player offline, and the
+  guest reconnects by itself every 2.5 seconds, for up to 90 seconds, with the same client ID, so it keeps its
+  score. A drawer who drops has 8 seconds to come back before the turn moves on.
+- **The host must keep the tab open.** Closing it ends the room. A reload is fine: the game is saved in the tab's
+  session storage, the room opens again under the same ID (the PeerJS server can hold on to the old one for a few
+  seconds, so the host retries), and everyone reconnects and gets the drawing, the gallery and the chat back.
 
 ## Run it locally
 
