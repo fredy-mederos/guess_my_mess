@@ -72,7 +72,8 @@ The site is just static files, so GitHub Pages can host it. Multiplayer is **pee
 - The browser that creates the room **is the game server**. It holds the secret word and sends each player only
   what they're allowed to see.
 - The free public [PeerJS](https://peerjs.com) server only introduces browsers to each other. Drawings, guesses and
-  chat travel directly between players, encrypted.
+  chat travel directly between players, encrypted. When two networks can't reach each other directly (phones on
+  mobile data, mostly), PeerJS's free relay passes the traffic along, still encrypted.
 - **The host must keep the tab open.** Closing it ends the room; a reload is fine.
 
 ## Run it locally
@@ -90,9 +91,9 @@ Wi-Fi. Create the room from the network-IP address so the invite link works on t
 node --test
 ```
 
-Plays real games in headless Chrome: a full 3-player game, the phone layout and the letter hints, plus a check
-of the word packs. All it needs is Node.js 22+ and Google Chrome. There's also a 20-player stress test and a
-script that retakes the screenshots above; see [tests/README.md](tests/README.md).
+Plays real games in headless Chrome: a full 3-player game, the phone layout, the letter hints and joining when
+something goes wrong, plus a check of the word packs. All it needs is Node.js 22+ and Google Chrome. There's also
+a 20-player stress test and a script that retakes the screenshots above; see [tests/README.md](tests/README.md).
 
 ## Releasing
 
@@ -124,10 +125,13 @@ git push origin main:release v2.0.0
 
 ## Troubleshooting
 
-- **A teammate can't join**: some corporate networks and VPNs block peer-to-peer connections. Try without the
-  VPN or from another network.
-- **"That room doesn't exist anymore"**: the host closed their tab. The host creates a new room and shares the new
-  link.
+- **"Found the host, but your devices couldn't connect"**: the two networks can't reach each other, and PeerJS's
+  free relay didn't help (it's best-effort). Common with mobile data on both phones, VPNs and office Wi-Fi. Put
+  one player on Wi-Fi, or have everyone join the host's phone hotspot.
+- **"The host isn't answering"**: phones pause a page that's in the background, so a host who's in another app
+  can't let anyone in. The host goes back to the game, and the guest tries again.
+- **"Couldn't find that room"**: the host closed their tab, or has been in another app for a while. If it's
+  closed, the host creates a new room and shares the new link.
 - **Something looks off right after a release**: reload the page so everyone runs the same version.
 
 ## Contributing

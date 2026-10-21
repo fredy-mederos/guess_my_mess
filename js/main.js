@@ -320,8 +320,10 @@ function joinExisting(profile) {
       if (s === 'connected') $('#toast').hidden = true;
     },
     onFail: (reason) => backHome({
-      notfound: 'That room doesn’t exist anymore. The host may have closed it.',
-      timeout: 'Couldn’t reach the host. A network or VPN may be blocking peer-to-peer connections.',
+      notfound: 'Couldn’t find that room. The host may have closed it, or switched to another app on their phone.',
+      silent: 'The host isn’t answering. On a phone, they need to keep the game on screen while people join.',
+      nopath: 'Found the host, but your devices couldn’t connect. Mobile data, VPNs and office Wi-Fi can block this: put one of you on Wi-Fi, or join the host’s phone hotspot.',
+      timeout: 'Couldn’t reach the matchmaking server. Check your internet connection and try again.',
       lost: 'Lost the connection to the host.',
     }[reason] || `Connection problem (${reason}). Please try again.`),
   });

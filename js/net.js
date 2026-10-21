@@ -1,7 +1,8 @@
 // Peer-to-peer transport on top of PeerJS (loaded globally from the CDN in index.html).
 // The public PeerJS server is only used to introduce browsers to each other; game traffic
-// then flows directly between them. Everyone connects to the host (a star), and the host
-// relays. Heartbeats catch players whose tab died without a clean "close".
+// then flows directly between them, or through PeerJS's free relay when two networks can't
+// reach each other (phones on mobile data, say). Everyone connects to the host (a star), and
+// the host relays. Heartbeats catch players whose tab died without a clean "close".
 
 const PREFIX = 'guessmymess-v1-';
 const PEER_OPTS = { debug: 1 };
@@ -10,6 +11,8 @@ const PEER_OPTS = { debug: 1 };
 const CONN_OPTS = { reliable: true, serialization: 'binary' };
 const PING_MS = 4000;
 const DEAD_MS = 14000;
+const JOIN_MS = 20000;  // how long a first join keeps trying before saying what went wrong
+const KNOCK_MS = 8000;  // a join the host hasn't answered by then is sent again
 
 export function hostRoom(roomId, { onReady, onJoin, onMessage, onLeave, onError }) {
   const conns = new Map(); // clientId -> { conn, seen }
@@ -100,10 +103,17 @@ export function joinRoom(roomId, cid, { onOpen, onMessage, onStatus, onFail }) {
   let lastHeard = 0;
   let retryTimer = null;
   let giveUpAt = 0;
+  let missing = false; // the PeerJS server said nobody holds this room right now
+
+  // The host has replied to this attempt, so only the network route between us is left
+  const answered = (c) => !!c?.peerConnection?.remoteDescription;
 
   function connect() {
     if (closed) return;
+    clearTimeout(retryTimer);
+    const old = conn;
     conn = peer.connect(PREFIX + roomId, { ...CONN_OPTS, metadata: { cid } });
+    old?.close(); // an unanswered attempt; a late answer to it must not open a second link
     const c = conn;
     c.on('open', () => {
       if (c !== conn) return;
@@ -119,7 +129,14 @@ export function joinRoom(roomId, cid, { onOpen, onMessage, onStatus, onFail }) {
       if (msg.t === 'ping') return c.send({ t: 'pong' });
       onMessage(msg);
     });
+    // PeerJS reports a failed route only here, then drops the attempt without a "close"
+    c.on('error', (e) => {
+      if (c === conn && !everConnected && e.type === 'negotiation-failed') fail('nopath');
+    });
     c.on('close', () => { if (c === conn) lost(); });
+    // A host on a phone who switched apps can't answer, and the request may be gone by the
+    // time they're back: until we're in, ask again
+    if (!everConnected) retryTimer = setTimeout(() => { if (c === conn && !answered(c)) connect(); }, KNOCK_MS);
   }
 
   function lost() {
@@ -138,7 +155,12 @@ export function joinRoom(roomId, cid, { onOpen, onMessage, onStatus, onFail }) {
 
   peer = new Peer(PEER_OPTS);
   onStatus('connecting');
-  const firstTimeout = setTimeout(() => { if (!everConnected) fail('timeout'); }, 20000);
+  // Out of time: say whether PeerJS was unreachable, the room missing, the host silent, or the
+  // host found but no route between the two devices worked
+  const firstTimeout = setTimeout(() => {
+    if (everConnected) return;
+    fail(!peer.open ? 'timeout' : answered(conn) ? 'nopath' : missing ? 'notfound' : 'silent');
+  }, JOIN_MS);
   function fail(reason) {
     clearTimeout(firstTimeout);
     if (!closed) onFail(reason);
@@ -148,8 +170,12 @@ export function joinRoom(roomId, cid, { onOpen, onMessage, onStatus, onFail }) {
   peer.on('disconnected', () => { if (!closed && !peer.destroyed) peer.reconnect(); });
   peer.on('error', (e) => {
     if (e.type === 'peer-unavailable') {
-      // Before we ever got in, this means "no such room"; later it's a host that's reloading
-      return everConnected ? lost() : fail('notfound');
+      if (everConnected) return lost(); // a host that's reloading
+      // No such room, or a host who's away for a moment: keep asking until JOIN_MS is up
+      missing = true;
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => { if (!answered(conn)) connect(); }, 2500);
+      return;
     }
     if (!everConnected) fail(e.type);
   });

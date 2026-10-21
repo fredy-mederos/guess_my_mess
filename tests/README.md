@@ -13,7 +13,7 @@ From the repository root:
 node --test
 ```
 
-This runs every `tests/*.test.mjs` file at once, in about 40 seconds:
+This runs every `tests/*.test.mjs` file at once, in about a minute:
 
 | File | What it checks |
 | --- | --- |
@@ -21,6 +21,7 @@ This runs every `tests/*.test.mjs` file at once, in about 40 seconds:
 | `game.test.mjs` | A 3-player game on laptops and a phone: a character change mid-room, three turns, the vote and the results |
 | `phone.test.mjs` | The phone layout: guess box above the keyboard, aligned reveal scores, full-width board for the drawer |
 | `hints.test.mjs` | Letter blanks for a six-word phrase, and hint letters showing up in the right places |
+| `join.test.mjs` | Joining when things go wrong: a host away for a moment, a room that's gone, devices that can't connect |
 | `smoke.test.mjs` | The quick one: two players meet in a room and start a game |
 
 Run a single file with `node --test tests/phone.test.mjs`. Screenshots from each run land in `tests/out/`

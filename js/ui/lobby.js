@@ -35,6 +35,7 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
   const linkEnd = h('span.link-end');
   const link = h('div.input.invite-link', { 'aria-label': 'Invite link (tap to copy)', onclick: () => onCopy() }, linkStart, linkEnd);
   // Kept as stable elements (not rebuilt per update) so clicks never land on a stale button
+  const inviteNote = h('p.muted');
   const startBtn = h('button.btn.pink.big', { type: 'button', onclick: () => onStart() }, 'Start the game!');
   const startNote = h('p');
   const startArea = h('div.start-area', startBtn, startNote);
@@ -70,7 +71,7 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
     h('section.card.tape',
       h('h3', h('span.marker', 'Invite your team')),
       h('div.invite-row', link, h('button.btn.primary.small', { type: 'button', title: 'Copy the invite link', onclick: () => onCopy() }, icon('link'), 'Copy link')),
-      h('p.muted', 'Anyone with this link can join while the host keeps this room open.'),
+      inviteNote,
       startArea,
     ),
     h('section.card',
@@ -103,6 +104,10 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
       linkStart.textContent = base.replace(/^https?:\/\//, '');
       linkEnd.textContent = room ? `#${room}` : '';
       link.title = inviteLink;
+      // Phones pause a page in the background, and a paused host can't let anyone in
+      inviteNote.textContent = host
+        ? 'Keep this page open while people join. On a phone, switching to another app can pause the room.'
+        : 'Anyone with this link can join while the host keeps this room open.';
       for (const [key, el] of Object.entries(f)) {
         el.disabled = !host;
         if (document.activeElement === el) continue; // don't fight the host's typing
