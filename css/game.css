@@ -258,7 +258,7 @@
 
 /* ---------- toolbar ---------- */
 .toolbar { position: relative; width: var(--board-w, 100%); flex: none; }
-/* Wraps rather than scrolls, so Undo/Clear are never hidden off to the side on laptop widths */
+/* Wraps rather than scrolls, so Undo/Redo/Clear are never hidden off to the side on laptop widths */
 .tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 4px 6px 2px; }
 .tb-btn {
   flex: none;
@@ -276,6 +276,7 @@
   cursor: pointer;
 }
 .tb-btn:active { transform: translate(1px, 1px); box-shadow: none; }
+.tb-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: 2px 2px 0 var(--shadow); }
 .tb-btn.danger:hover { background: var(--danger-bg); }
 .tb-btn .ic { font-size: 1.15rem; }
 .tb-color .chip, .bg-chip {

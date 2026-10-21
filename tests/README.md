@@ -18,7 +18,7 @@ This runs every `tests/*.test.mjs` file at once, in about a minute:
 | File | What it checks |
 | --- | --- |
 | `words.test.mjs` | Word packs (tidy, no word twice) and guess matching, without a browser |
-| `game.test.mjs` | A 3-player game on laptops and a phone: a character change mid-room, three turns, the vote and the results |
+| `game.test.mjs` | A 3-player game on laptops and a phone: a character change mid-room, three turns (with undo and redo), the vote and the results |
 | `phone.test.mjs` | The phone layout: guess box above the keyboard, aligned reveal scores, full-width board for the drawer |
 | `hints.test.mjs` | Letter blanks for a six-word phrase, and hint letters showing up in the right places |
 | `join.test.mjs` | Joining when things go wrong: a host away for a moment, a room that's gone, devices that can't connect |

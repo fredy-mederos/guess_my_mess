@@ -49,22 +49,46 @@ step('a player changes name and doodle mid-room', async () => {
 step('the host sets up one round with three team words', () =>
   setup(fredy, { rounds: 1, drawTime: 60, customWords: 'rubber duck, sunflower, robot', customOnly: true }));
 
-step('turn 1: Fredy draws a rubber duck on a laptop, undoing a few lines', async () => {
+step('turn 1: Fredy draws a rubber duck on a laptop, undoing and redoing a few lines', async () => {
   await fredy.eval(`__d.click('Start the game')`);
   await fredy.waitFor(`__d.pickWord('rubber duck')`);
   await fredy.waitFor(`document.querySelector('.board').classList.contains('drawing')`);
-  await fredy.eval(`(() => { const d = __d;
+  // Ink on the board after each move, and which of Undo / Redo are greyed out
+  const ink = await fredy.eval(`(() => { const d = __d, ink = {};
+    const off = () => ['Undo', 'Redo'].map((b) => document.querySelector('.tb-row button[title^="' + b + '"]').disabled);
+    ink.offAtStart = off();
     d.paper('#dbeafe');
     d.color('#fcc419'); d.shape('ellipse', 0.28, 0.47, 0.70, 0.81, true);
     d.color('#2b2533'); d.size(7); d.shape('ellipse', 0.28, 0.47, 0.70, 0.81, false);
     d.color('#fcc419'); d.shape('ellipse', 0.53, 0.2, 0.725, 0.46, true);
     d.color('#2b2533'); d.shape('ellipse', 0.53, 0.2, 0.725, 0.46, false);
+    ink.duck = d.inkCount();
     d.brush('pen'); d.path([[0.1, 0.1], [0.2, 0.2]]); d.path([[0.1, 0.2], [0.2, 0.1]]); d.path([[0.15, 0.1], [0.15, 0.2]]);
+    ink.doodle = d.inkCount();
+    d.undo(); d.undo(); d.ctrl('z');
+    ink.undone = d.inkCount();
+    d.redo(); d.ctrl('Z'); d.ctrl('y');
+    ink.redone = d.inkCount();
     d.undo(); d.undo(); d.undo();
     d.color('#f76707'); d.shape('ellipse', 0.705, 0.31, 0.81, 0.39, true);
+    ink.beak = d.inkCount();
+    d.redo(); d.ctrl('y'); // the beak is new, so the doodle can't come back
+    ink.noRedo = d.inkCount();
+    ink.offAfterBeak = off();
     d.color('#2b2533'); d.shape('ellipse', 0.622, 0.27, 0.652, 0.31, true);
     d.brush('pen'); d.color('#1c7ed6'); d.size(8); d.curve((t) => [0.03 + 0.94 * t, 0.88 + 0.02 * Math.sin(t * 22)], 100);
-    return true; })()`);
+    ink.water = d.inkCount();
+    d.undo(); d.redo();
+    ink.final = d.inkCount();
+    return ink; })()`);
+  assert.deepEqual(ink.offAtStart, [true, true], 'nothing to undo or redo on a blank board');
+  assert.equal(ink.undone, ink.duck, 'undo (button and Ctrl+Z) takes the doodle away');
+  assert.equal(ink.redone, ink.doodle, 'redo (button, Ctrl+Shift+Z and Ctrl+Y) brings it back');
+  assert.equal(ink.noRedo, ink.beak, 'drawing something new leaves nothing to redo');
+  assert.deepEqual(ink.offAfterBeak, [false, true], 'only Redo is greyed out after the beak');
+  assert.equal(ink.final, ink.water, 'undo then redo leaves the drawing as it was');
+  // The other screens show exactly the same duck, so undos and redos reached everyone
+  await Promise.all([ana, sam].map((p) => p.waitFor(`__d.inkCount() === ${ink.final}`, 5000)));
   await chat([ana, 'banana?'], [sam, 'rubbr duck']);
   await sam.waitFor(`__d.chatHas('is really close')`, 5000);
   assert.ok(!(await fredy.eval(`__d.chatHas('is really close')`)), 'only the guesser hears they were close');
@@ -130,7 +154,7 @@ step('results: points podium, best drawing and fun stats', async (t) => {
   assert.deepEqual(final.map((p) => p.score), final.map((p) => p.score).sort((a, b) => b - a), 'podium in points order');
   const stat = (title) => stats.find((s) => s.title === title) || {};
   assert.equal(stat('Minimalist').who, 'Samuel', 'the 2-line robot is the minimalist drawing');
-  assert.equal(stat('Second thoughts').who, 'Fredy', 'Fredy undid 3 lines');
+  assert.equal(stat('Second thoughts').who, 'Fredy', 'Fredy undid 7 times');
   await fredy.resize(1280, 2100);
   await fredy.shot('results-desktop.jpg');
   await ana.resize(390, 1900);

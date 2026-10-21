@@ -1,6 +1,6 @@
 // The drawing board. Drawings are lists of "ops" in 0..1 coordinates, so they render the
 // same on a phone and a 4K screen. The drawer's ops stream out as they happen; everyone
-// else replays them. Undo simply drops the last op and replays the rest.
+// else replays them. Undo simply drops the last op and replays the rest; redo puts it back.
 //
 //   stroke: { k: 's', id, b: brush, c: color, w: width, p: [x, y, x, y, ...] }
 //   fill:   { k: 'f', id, x, y, c }
@@ -234,11 +234,14 @@ export function createBoard(root, { onEmit }) {
   const lctx = live.getContext('2d');
 
   let ops = [];
+  let undone = [];         // ops taken back by undo, newest last, until something new is drawn
+  let onHistory = null;    // the toolbar, which greys out Undo / Redo when they'd do nothing
   let bg = '#ffffff';
   let liveOp = null;       // translucent stroke currently being drawn (by anyone)
   let liveFrame = 0;
   let interactive = false;
   const tool = { kind: 'brush', brush: 'pen', color: '#2b2533', size: 8 }; // kind: 'brush' | 'fill'
+  const historyChanged = () => onHistory?.(ops.length > 0, undone.length > 0);
 
   // ---------- rendering ----------
   function setBg(c) {
@@ -295,14 +298,17 @@ export function createBoard(root, { onEmit }) {
       case 'clear': ops = []; replay(); break;
       case 'bg': setBg(msg.c); break;
     }
+    historyChanged();
   }
 
   function reset(newBg = '#ffffff') {
     ops = [];
+    undone = [];
     liveOp = null;
     lctx.clearRect(0, 0, W, H);
     ctx.clearRect(0, 0, W, H);
     setBg(newBg);
+    historyChanged();
   }
 
   // ---------- local drawing ----------
@@ -310,6 +316,13 @@ export function createBoard(root, { onEmit }) {
   let pending = [];        // its points not yet sent
   let opSeq = 0;
   const newId = () => Date.now().toString(36) + (opSeq++).toString(36);
+
+  // Something new from the drawer: what they undid before can't be redone any more
+  function addOp(op) {
+    ops.push(op);
+    undone = [];
+    historyChanged();
+  }
 
   function toNorm(e) {
     const r = live.getBoundingClientRect();
@@ -331,12 +344,12 @@ export function createBoard(root, { onEmit }) {
     const p = toNorm(e);
     if (tool.kind === 'fill') {
       const op = { k: 'f', id: newId(), x: p[0], y: p[1], c: tool.color };
-      ops.push(op);
+      addOp(op);
       renderOp(ctx, op);
       return onEmit({ a: 'op', op });
     }
     current ={ k: 's', id: newId(), b: tool.brush, c: tool.color, w: tool.size, p: [...p] };
-    ops.push(current);
+    addOp(current);
     pending = [];
     if (BRUSHES[current.b].mode === 'live') { liveOp = current; redrawLive(); } else segment(ctx, current, 0);
     onEmit({ a: 'begin', op: { ...current, p: [...current.p] } });
@@ -392,14 +405,30 @@ export function createBoard(root, { onEmit }) {
       if (!on) { current = null; cursor.hidden = true; }
     },
     undo() {
+      finish(); // a line still being drawn ends here, so it's undone (and redone) whole
       if (!ops.length) return;
-      ops.pop();
+      undone.push(ops.pop());
       replay();
+      historyChanged();
       onEmit({ a: 'undo' });
+    },
+    redo() {
+      if (!undone.length) return;
+      const op = undone.pop();
+      ops.push(op);
+      renderOp(ctx, op); // nothing new was drawn since it was undone, so it goes right back on top
+      historyChanged();
+      // Everyone else just gets the op again, so the host and late joiners have it too
+      onEmit({ a: 'op', op });
+    },
+    // fn(canUndo, canRedo) runs whenever the drawing changes
+    watchHistory(fn) {
+      onHistory = fn;
+      historyChanged();
     },
     clear() {
       const op = { k: 'c', id: newId() };
-      ops.push(op);
+      addOp(op);
       renderOp(ctx, op);
       onEmit({ a: 'op', op });
     },

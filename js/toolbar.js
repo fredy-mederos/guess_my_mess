@@ -1,4 +1,4 @@
-// The drawer's toolbox: brushes and tools, colors, size, background, undo, clear.
+// The drawer's toolbox: brushes and tools, colors, size, background, undo, redo, clear.
 // Wide screens: compact row with pop-up trays plus quick colors. Phones in drawer mode
 // (chat hidden) show every tool and color inline instead — see .tb-inline in game.css.
 import { h, $$ } from './util.js';
@@ -28,6 +28,10 @@ export function createToolbar(root, board) {
   const toolBtn = h('button.tb-btn.tb-tool', { type: 'button', title: 'Brushes & tools' });
   const colorBtn = h('button.tb-btn.tb-color', { type: 'button', title: 'Color' }, h('span.chip'));
   const bgBtn = h('button.tb-btn', { type: 'button', title: 'Paper color' }, h('span.bg-chip'), h('span.tb-label', 'Paper'));
+  // Arrows without labels: the pair takes the room Undo alone used to, so the toolbar doesn't
+  // grow another row and push Clear off the bottom of short laptop screens
+  const undoBtn = h('button.tb-btn', { type: 'button', title: 'Undo (Ctrl+Z)', 'aria-label': 'Undo', onclick: () => board.undo() }, icon('undo'));
+  const redoBtn = h('button.tb-btn', { type: 'button', title: 'Redo (Ctrl+Shift+Z)', 'aria-label': 'Redo', onclick: () => board.redo() }, icon('redo'));
   const sizeInput = h('input.size-range', { type: 'range', min: 2, max: 60, value: tool.size, 'aria-label': 'Brush size' });
   const sizeDot = h('span.size-dot');
   const custom = h('input', { type: 'color', value: tool.color, oninput: (e) => setColor(e.target.value), 'aria-label': 'Custom color' });
@@ -120,18 +124,28 @@ export function createToolbar(root, board) {
       h('label.tb-size', sizeDot, sizeInput),
       bgBtn,
       h('span.tb-spacer'),
-      h('button.tb-btn', { type: 'button', title: 'Undo (Ctrl+Z)', onclick: () => board.undo() }, icon('undo'), h('span.tb-label', 'Undo')),
+      undoBtn,
+      redoBtn,
       h('button.tb-btn.danger', { type: 'button', title: 'Clear the drawing', onclick: () => board.clear() }, icon('trash'), h('span.tb-label', 'Clear')),
     ),
     inline,
     toolPop, colorPop, bgPop,
   );
 
+  // Undo / Redo grey out when there's nothing to take back or bring back
+  board.watchHistory((canUndo, canRedo) => {
+    undoBtn.disabled = !canUndo;
+    redoBtn.disabled = !canRedo;
+  });
+
   document.addEventListener('keydown', (e) => {
     if (!root.isConnected || root.hidden || e.target.matches('input, textarea')) return;
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    const key = e.key.toLowerCase();
+    // Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y redoes (Cmd instead of Ctrl on a Mac)
+    if ((e.ctrlKey || e.metaKey) && (key === 'z' || key === 'y')) {
       e.preventDefault();
-      board.undo();
+      if (key === 'y' || e.shiftKey) board.redo();
+      else board.undo();
     }
   });
 

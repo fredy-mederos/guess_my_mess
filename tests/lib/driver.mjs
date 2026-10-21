@@ -37,6 +37,10 @@ export function driver() {
     range.dispatchEvent(new Event('input'));
   };
   const undo = () => document.querySelector('.tb-row button[title^="Undo"]').click();
+  const redo = () => document.querySelector('.tb-row button[title^="Redo"]').click();
+  // A Ctrl shortcut from the keyboard; a capital letter means Shift too ('Z' is Ctrl+Shift+Z)
+  const ctrl = (key) => document.body.dispatchEvent(new KeyboardEvent('keydown',
+    { key, ctrlKey: true, shiftKey: key !== key.toLowerCase(), bubbles: true, cancelable: true }));
   // There are no shape tools: outline with the pen, then the bucket fills it, like a player would
   const shape = (kind, x1, y1, x2, y2, fill) => {
     brush('pen');
@@ -96,5 +100,5 @@ export function driver() {
     return n;
   };
 
-  window.__d = { path, curve, brush, tool, color, paper, size, undo, shape, click, say, pickWord, react, chatHas, timedGuess, inkCount };
+  window.__d = { path, curve, brush, tool, color, paper, size, undo, redo, ctrl, shape, click, say, pickWord, react, chatHas, timedGuess, inkCount };
 }

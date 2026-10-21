@@ -67,7 +67,7 @@ Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75
   30 to 240 second turns; pick from 1 to 5 words; letter hints; "you're close" hints; custom team words, mixed
   in or on their own.
 - **Drawing tools**: pen, marker, ink, spray, neon, rainbow, eraser and fill bucket; 24 colors plus a custom
-  picker, brush size, paper color, undo and clear.
+  picker, brush size, paper color, undo, redo and clear.
 - **Fair guessing**: correct answers are hidden from the chat, near misses get a private "so close!", and
   accents, spaces and hyphens don't matter (`arbol` = `árbol`, `standup` = `stand-up`). Players who already
   guessed can keep chatting without spoiling it.
