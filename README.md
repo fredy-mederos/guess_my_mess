@@ -23,12 +23,37 @@ Share a link, play in the browser, no accounts and no server.
 2. **Create a room** and hit **Copy link**. Paste it in your team chat; everyone who opens it joins your room.
 3. **Set up the game** (host): word pack language, difficulty, rounds, drawing time and your own team words.
 4. **Take turns.** The drawer picks one of a few words and draws it. Everyone else types guesses in the chat.
-   Faster guesses score more, and the drawer earns points for every player who gets it.
+   Faster guesses score more, and the drawer earns points for every player who gets it
+   ([how points work](#how-points-work)).
 5. **Vote for the best drawing.** After the last round, every drawing goes up in a gallery and everyone hands
    out hearts: one per round played, up to 3 (not to their own drawings, of course).
 6. **Two winners.** The points podium crowns the best guesser, the most-hearted drawing wins Best drawing, and a
    wall of fun stats celebrates the rest: easiest and hardest word, fastest guess, the minimalist who needed just
    two lines, and more.
+
+### How points work
+
+| What happens | Who scores | Points |
+| --- | --- | --- |
+| You guess the word | You | **100**, plus up to **400** for speed: 400 × the share of the drawing time still left |
+| You're the first to guess it this turn | You | **+50** on top |
+| Someone guesses your drawing | The drawer | **+75** for every player who gets it |
+| A wrong guess, or a "so close!" one | Nobody | 0, and no penalty: guess as often as you like |
+| Letter hints show up | Nobody | 0: hints never cost or change points, they only make the word easier as time runs out |
+| Hearts in the best-drawing vote | Nobody | 0: hearts pick Best drawing, not the points winner |
+
+In one line: **guess points = 100 + 400 × (time left ÷ drawing time) + 50 if you're first**, rounded to the nearest
+5. So the most you can get for one guess is 550 (first, right away), and a guess just before the buzzer is worth
+100 (150 if nobody got it before you).
+
+For example, in an 80-second turn: Ana guesses first, after 20 seconds (60 left), and gets 100 + 300 + 50 = **450**.
+Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75 + 75 = **150**.
+
+- **When a turn ends**: as soon as everyone has guessed, or when the time runs out.
+- **Letter hints**: nothing shows for the first 30% of the turn, then letters appear one at a time until 90% of the
+  turn. "A few" shows up to 30% of the letters, "Lots" up to 50%, and never the whole word.
+- **Who wins**: the highest total after the last round, and a tie shares the win. The hall of fame counts those
+  wins, plus Best drawing awards.
 
 ## Features
 
