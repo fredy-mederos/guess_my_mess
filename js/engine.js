@@ -4,10 +4,12 @@
 // are allowed to see, so the word never reaches someone who shouldn't have it.
 import { sanitizeAvatar } from './avatar.js';
 import { pickChoices, LANGUAGES, DIFFICULTIES } from './words/index.js';
-import { normalize, levenshtein, clamp, pick } from './util.js';
+import { normalize, levenshtein, clamp, pick, shuffle } from './util.js';
 
+// mode: 'classic' (one drawer per turn) or 'pairs' (two players draw the same word together)
+export const MODES = ['classic', 'pairs'];
 export const DEFAULT_SETTINGS = {
-  lang: 'en', difficulty: 'mixed', rounds: 3, drawTime: 80, choices: 3,
+  mode: 'classic', lang: 'en', difficulty: 'mixed', rounds: 3, drawTime: 80, choices: 3,
   hints: 1, closeHints: true, customWords: '', customOnly: false,
 };
 export const REACTIONS = ['thumbs', 'laugh', 'fire', 'heart', 'wow', 'think']; // icon names
@@ -29,6 +31,7 @@ const votingMs = (drawings) => clamp(20000 + drawings * 6000, 30000, 90000);
 export function cleanSettings(s = {}) {
   const d = DEFAULT_SETTINGS;
   return {
+    mode: MODES.includes(s.mode) ? s.mode : d.mode,
     lang: LANGUAGES[s.lang] ? s.lang : d.lang,
     difficulty: DIFFICULTIES[s.difficulty] ? s.difficulty : d.difficulty,
     rounds: int(s.rounds, 1, 10, d.rounds),
@@ -44,7 +47,11 @@ export function cleanSettings(s = {}) {
 function freshState(settings) {
   return {
     phase: 'lobby', settings: cleanSettings(settings), players: [], round: 0, queue: [],
-    drawer: null, choices: [], word: null, deadline: 0, phaseMs: 0, turnStart: 0,
+    // In pairs mode the drawer picks the word and the partner draws it with them
+    drawer: null, partner: null, choices: [], word: null, deadline: 0, phaseMs: 0, turnStart: 0,
+    // Pairs bookkeeping, so partners change and everyone gets to pick: times each pair drew
+    // together, words each player picked, turns each player drew
+    pairs: {}, picks: {}, drawn: {},
     revealed: [], maxReveal: 0, ops: [], bg: DEFAULT_BG, guessCount: 0, used: [],
     results: null, final: null, banned: [], chatLog: [],
     // End-of-game gallery: one snapshot per finished drawing, hearts per voter, the winners
@@ -73,6 +80,13 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
   const online = () => S.players.filter((p) => p.online);
   const inGame = () => ['choosing', 'drawing', 'reveal'].includes(S.phase);
   const each = (fn) => online().forEach(fn);
+  // This turn's drawers: just the drawer, or the drawer and their partner in pairs mode
+  const drawerIds = () => [S.drawer, S.partner].filter(Boolean);
+  const isDrawer = (id) => drawerIds().includes(id);
+  const artistName = () => drawerIds().map((id) => player(id)?.name || 'Someone').join(' & ');
+  const pairKey = (a, b) => [a, b].sort().join('|');
+  // A drawing made in pairs belongs to both artists
+  const madeBy = (d, id) => d.drawer === id || d.partner === id;
 
   function sync() {
     if (dirty) return;
@@ -104,8 +118,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
   }
 
   function view(p) {
-    const isDrawer = p.id === S.drawer;
-    const seesWord = isDrawer || p.guessed || S.phase === 'reveal';
+    const seesWord = isDrawer(p.id) || p.guessed || S.phase === 'reveal';
     return {
       t: 'state',
       phase: S.phase,
@@ -114,13 +127,15 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
       settings: S.settings,
       round: S.round,
       drawer: S.drawer,
+      partner: S.partner,
       players: S.players.map(({ id, name, avatar, score, online, guessed, turnPts }) =>
         ({ id, name, avatar, score, online, guessed, turnPts, voted: S.done.includes(id) })),
       remaining: S.deadline ? Math.max(0, S.deadline - now()) : 0,
       phaseMs: S.phaseMs,
       word: seesWord ? S.word : null,
       hint: S.phase === 'drawing' ? mask() : '',
-      choices: isDrawer && S.phase === 'choosing' ? S.choices : null,
+      // Only the drawer picks; a partner waits for the word
+      choices: p.id === S.drawer && S.phase === 'choosing' ? S.choices : null,
       results: S.phase === 'reveal' ? S.results : null,
       final: S.phase === 'podium' ? S.final : null,
       // Votes stay secret until the results, so nobody just follows the crowd
@@ -136,7 +151,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
   // One heart per round played (up to 3), and never more than there are drawings you can like
   // (your own don't count): a 1-round game with 3 players means a single heart each
   function maxVotes(id) {
-    return Math.min(MAX_VOTES, S.settings.rounds, S.gallery.filter((d) => d.drawer !== id).length);
+    return Math.min(MAX_VOTES, S.settings.rounds, S.gallery.filter((d) => !madeBy(d, id)).length);
   }
 
   // Ops can be big, so canvas catch-up goes out in chunks
@@ -210,14 +225,33 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
   function startGame() {
     S.players = S.players.filter((p) => p.online);
     S.players.forEach((p) => { p.score = 0; });
-    S.round = 1;
-    S.queue = S.players.map((p) => p.id);
+    S.round = 0;
+    S.queue = []; // nextTurn starts round 1 with everyone in it
     S.used = [];
     S.final = null;
     Object.assign(S, { gallery: [], votes: {}, done: [], best: [], tally: {}, turnLog: [], wrong: {}, close: {}, stats: [] });
+    Object.assign(S, { pairs: {}, picks: {}, drawn: {} });
     each((p) => sendTo(p.id, { t: 'gallery', reset: true }));
-    system('Game on! Good luck everyone.', 'start');
+    system(pairsNow() ? 'Game on! Drawing in pairs this time. Good luck everyone.' : 'Game on! Good luck everyone.', 'start');
     nextTurn();
+  }
+
+  // Pairs need someone left to guess: with two players it's one drawer at a time
+  const pairsNow = () => S.settings.mode === 'pairs' && online().length >= 3;
+
+  // The drawer's partner: someone still waiting for their turn this round, preferably a new
+  // pairing. With an odd number of players the last one draws with someone who already drew
+  // this round (whoever drew with them least, then whoever has drawn least).
+  function pickPartner(lead) {
+    const together = (id) => S.pairs[pairKey(lead, id)] || 0;
+    const waiting = S.queue.filter((id) => id !== lead && player(id)?.online);
+    if (waiting.length) {
+      const id = minBy(waiting, together);
+      S.queue.splice(S.queue.indexOf(id), 1);
+      return id;
+    }
+    const others = shuffle(online().map((p) => p.id).filter((id) => id !== lead));
+    return minBy(others, (id) => together(id) * 1000 + (S.drawn[id] || 0));
   }
 
   function nextTurn() {
@@ -227,12 +261,23 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
         S.round++;
         // Last turn done: vote on the drawings first (needs at least two to choose from)
         if (S.round > S.settings.rounds) return S.gallery.length >= 2 ? startVoting() : endGame();
+        // Everyone draws once per round; in pairs the order is shuffled so partners change
         S.queue = online().map((p) => p.id);
+        if (S.settings.mode === 'pairs') S.queue = shuffle(S.queue);
       }
       const id = S.queue.shift();
       if (player(id)?.online) next = id;
     }
     S.drawer = next;
+    S.partner = pairsNow() ? pickPartner(next) : null;
+    if (S.partner) {
+      // Of the two, whoever has picked fewer words so far picks this one
+      if ((S.picks[S.partner] || 0) < (S.picks[S.drawer] || 0)) [S.drawer, S.partner] = [S.partner, S.drawer];
+      const key = pairKey(S.drawer, S.partner);
+      S.pairs[key] = (S.pairs[key] || 0) + 1;
+    }
+    S.picks[S.drawer] = (S.picks[S.drawer] || 0) + 1;
+    for (const id of drawerIds()) S.drawn[id] = (S.drawn[id] || 0) + 1;
     S.word = null;
     S.choices = pickChoices(S.settings, new Set(S.used), S.settings.choices, new Set(recent));
     S.revealed = [];
@@ -259,20 +304,20 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
     S.guessTimes = [];
     S.undos = 0;
     setPhase('drawing', S.settings.drawTime * 1000);
-    system(`${player(S.drawer)?.name} is drawing now!`, 'drawing');
+    system(`${artistName()} ${S.partner ? 'are' : 'is'} drawing now!`, 'drawing');
     sync();
   }
 
   // What happened this turn, for the end-of-game fun stats
-  function logTurn(drawer, reason) {
+  function logTurn(reason) {
     const inked = S.ops.filter((o) => o.c && o.b !== 'eraser');
     S.turnLog.push({
       word: S.word,
-      drawer: drawer.id,
-      name: drawer.name,
+      drawer: S.drawer,
+      name: artistName(),
       reason,
       guesses: S.guessTimes.slice(),
-      possible: online().filter((o) => o.id !== drawer.id).length,
+      possible: online().filter((o) => !isDrawer(o.id)).length,
       ms: now() - S.turnStart,
       lines: S.ops.filter((o) => o.k === 's').length,
       colors: new Set(inked.map((o) => (o.b === 'rainbow' ? 'rainbow' : o.c))).size,
@@ -331,29 +376,33 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
 
   function endTurn(reason) {
     const drawer = player(S.drawer);
+    const partner = player(S.partner);
     S.results = {
       word: S.word,
       reason,
       drawer: S.drawer,
+      partner: S.partner,
       pts: Object.fromEntries(S.players.filter((p) => p.turnPts).map((p) => [p.id, p.turnPts])),
     };
-    if (S.word && drawer) logTurn(drawer, reason);
+    if (S.word && drawer) logTurn(reason);
     // Keep every real drawing for the end-of-game gallery, as strokes (vector), not pixels.
     // Everyone already received those strokes live, so only the label goes out now;
     // each device pairs it with the drawing on its own board and redraws it crisply later.
     if (S.word && S.ops.length && drawer) {
-      const d = { id: S.gallery.length + 1, drawer: drawer.id, name: drawer.name, avatar: drawer.avatar, word: S.word };
+      const d = { id: S.gallery.length + 1, drawer: drawer.id, name: artistName(), avatar: drawer.avatar, word: S.word };
+      if (partner) Object.assign(d, { partner: partner.id, partnerAvatar: partner.avatar });
       S.gallery.push({ ...d, bg: S.bg, ops: S.ops });
       each((p) => sendTo(p.id, { t: 'drawing', d }));
     }
     if (S.word) system(`The word was “${S.word}”`, 'reveal');
-    else if (reason === 'left') system(`${drawer?.name || 'The drawer'} left, skipping the turn`);
+    else if (reason === 'left') system(`${drawer ? artistName() : 'The drawer'} left, skipping the turn`);
     setPhase('reveal', REVEAL_MS);
     sync();
   }
 
   function startVoting() {
     S.drawer = null;
+    S.partner = null;
     S.word = null;
     S.votes = {};
     S.done = [];
@@ -364,7 +413,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
 
   function vote(p, id) {
     const d = S.gallery.find((g) => g.id === id);
-    if (!d || d.drawer === p.id) return;
+    if (!d || madeBy(d, p.id)) return;
     const mine = S.votes[p.id] || (S.votes[p.id] = []);
     const max = maxVotes(p.id);
     if (mine.includes(id)) mine.splice(mine.indexOf(id), 1);
@@ -385,6 +434,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
 
   function endGame() {
     S.drawer = null;
+    S.partner = null;
     S.word = null;
     const ranked = [...S.players].sort((a, b) => b.score - a.score);
     const top = ranked[0]?.score ?? 0;
@@ -395,7 +445,11 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
     for (const ids of Object.values(S.votes)) for (const id of ids) S.tally[id] = (S.tally[id] || 0) + 1;
     const most = Math.max(0, ...Object.values(S.tally));
     S.best = most ? S.gallery.filter((d) => S.tally[d.id] === most).map((d) => d.id) : [];
-    const artists = new Set(S.best.map((id) => S.gallery.find((d) => d.id === id).drawer));
+    // Both artists of a pair drawing share the award
+    const artists = new Set(S.best.flatMap((id) => {
+      const d = S.gallery.find((g) => g.id === id);
+      return [d.drawer, d.partner].filter(Boolean);
+    }));
 
     for (const p of S.final) {
       const key = normalize(p.name) || p.id;
@@ -422,7 +476,7 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
   function backToLobby(text) {
     S.players = S.players.filter((p) => p.online);
     S.players.forEach((p) => { p.score = 0; p.guessed = false; p.turnPts = 0; });
-    Object.assign(S, { round: 0, drawer: null, word: null, choices: [], ops: [], results: null, final: null });
+    Object.assign(S, { round: 0, drawer: null, partner: null, word: null, choices: [], ops: [], results: null, final: null });
     setPhase('lobby');
     if (text) system(text);
     each((p) => sendTo(p.id, { t: 'canvas', bg: DEFAULT_BG }));
@@ -442,12 +496,15 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
       p.guessed = true;
       S.guessCount++;
       S.guessTimes.push({ id: p.id, ms: now() - S.turnStart });
-      const drawer = player(S.drawer);
-      if (drawer) { drawer.score += DRAWER_PTS; drawer.turnPts += DRAWER_PTS; }
+      // Every drawer earns the same points: in pairs, both of them
+      for (const id of drawerIds()) {
+        const d = player(id);
+        if (d) { d.score += DRAWER_PTS; d.turnPts += DRAWER_PTS; }
+      }
       each((o) => chat(o, o === p
         ? { kind: 'you', text: `You guessed it: “${S.word}”! +${pts}` }
         : { kind: 'good', from: p.id, text: `${p.name} guessed the word!` }));
-      const left = online().filter((o) => o.id !== S.drawer && !o.guessed);
+      const left = online().filter((o) => !isDrawer(o.id) && !o.guessed);
       if (!left.length) return endTurn('all');
       return sync();
     }
@@ -464,35 +521,45 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
     if (!text || now() - (p.lastChat || 0) < 100) return;
     p.lastChat = now();
     if (S.phase !== 'drawing') return chatAll({ kind: 'msg', from: p.id, name: p.name, text });
-    if (p.id === S.drawer) {
+    if (isDrawer(p.id)) {
       if (normalize(text).includes(normalize(S.word))) return chat(p, { kind: 'warn', text: 'Nice try, no spoilers!' });
       return chatAll({ kind: 'msg', from: p.id, name: p.name, text });
     }
     if (p.guessed) {
       // People who already know the word can chat among themselves without spoiling it
       const msg = { kind: 'guessed', from: p.id, name: p.name, text };
-      return each((o) => { if (o.guessed || o.id === S.drawer) chat(o, msg); });
+      return each((o) => { if (o.guessed || isDrawer(o.id)) chat(o, msg); });
     }
     guess(p, text);
   }
 
   // ---------- drawing relay ----------
+  // Every stroke remembers who drew it (u): two people can draw at once in pairs mode, and
+  // each one's undo takes back their own latest stroke, never their partner's.
   function onDraw(p, msg) {
-    if (p.id !== S.drawer || S.phase !== 'drawing') return;
+    if (!isDrawer(p.id) || S.phase !== 'drawing') return;
     const op = msg.op;
     switch (msg.a) {
       case 'begin':
       case 'op':
         if (!op || typeof op !== 'object' || S.ops.length > 4000) return;
+        op.u = p.id;
         S.ops.push(op);
         break;
       case 'pts': {
-        const target = S.ops.findLast((o) => o.id === msg.id);
-        if (!target || !Array.isArray(msg.p) || target.p.length > 20000) return;
+        const target = S.ops.findLast((o) => o.id === msg.id && o.u === p.id);
+        if (!Array.isArray(target?.p) || !Array.isArray(msg.p) || target.p.length > 20000) return;
         target.p.push(...msg.p.slice(0, 2000));
         break;
       }
-      case 'undo': S.ops.pop(); S.undos++; break;
+      case 'undo': {
+        // The stroke it names (older versions don't name one: their latest)
+        const i = S.ops.findLastIndex((o) => o.u === p.id && (msg.id == null || o.id === msg.id));
+        if (i < 0) return;
+        msg = { t: 'd', a: 'undo', id: S.ops.splice(i, 1)[0].id };
+        S.undos++;
+        break;
+      }
       case 'clear': S.ops = []; break;
       case 'bg': S.bg = String(msg.c).slice(0, 9); break;
       case 'end': break;
@@ -509,8 +576,15 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
       const lastLeft = Math.max(...S.players.map((p) => p.offlineSince || 0));
       if (t - lastLeft > GRACE_MS) return backToLobby('Not enough players, back to the lobby');
     }
-    if ((S.phase === 'choosing' || S.phase === 'drawing') && drawer && !drawer.online && t - drawer.offlineSince > GRACE_MS) {
-      return endTurn('left');
+    if ((S.phase === 'choosing' || S.phase === 'drawing') && drawer) {
+      const gone = (p) => !p.online && t - p.offlineSince > GRACE_MS;
+      const partner = player(S.partner);
+      if (gone(drawer) && (!partner || gone(partner))) return endTurn('left');
+      // A pair keeps going with one of them: if the word picker dropped out, their partner picks
+      if (gone(drawer) && S.phase === 'choosing') {
+        [S.drawer, S.partner] = [S.partner, S.drawer];
+        sync();
+      }
     }
     if (S.phase === 'drawing' && S.maxReveal > 0) {
       const elapsed = (t - S.turnStart) / S.phaseMs;

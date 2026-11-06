@@ -172,6 +172,8 @@
 .gains .zero { color: var(--muted); }
 .gains .who { white-space: nowrap; }
 .waiting-avatar { display: inline-block; }
+/* "Ana draws it with you" on the word picker, in pairs mode */
+.pair-note { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 1.1rem; color: var(--ink-soft); }
 
 /* ---------- podium ---------- */
 .podium {
@@ -393,6 +395,32 @@
 .invite-link { width: 100%; display: flex; align-items: center; white-space: nowrap; overflow: hidden; cursor: pointer; }
 .invite-link .link-start { flex: 0 1 auto; min-width: 4em; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
 .invite-link .link-end { flex: none; }
+/* Game mode: two radio cards (Classic / Pairs); the chosen one gets the highlighter */
+.mode-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-bottom: 16px; }
+.mode-pick {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 2px dashed color-mix(in srgb, var(--ink) 40%, transparent);
+  border-radius: var(--r-btn);
+  transition: transform 0.12s ease;
+}
+.mode-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.mode-pick .mode-icon { font-size: 1.7rem; }
+.mode-pick b { display: block; font-weight: 400; font-size: 1.25rem; line-height: 1.1; }
+.mode-pick small { display: block; font-size: 0.98rem; line-height: 1.2; color: var(--ink-soft); }
+.mode-pick:hover:not(.locked) { transform: rotate(-0.8deg); }
+.mode-pick.sel { background: var(--accent); color: var(--accent-ink); border: 2.5px solid var(--ink); box-shadow: 2px 3px 0 var(--shadow); }
+.mode-pick.sel small { color: var(--accent-ink); }
+.mode-pick:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
+.mode-pick.locked { cursor: default; }
+.mode-pick.locked:not(.sel) { opacity: 0.6; }
+.pairs-note { display: block; margin-top: 2px; font-size: 0.98rem; color: var(--warn); }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .settings-grid .select { padding: 0.3em 0.5em; font-size: 1.08rem; }
 .setting > span { display: block; font-size: 1rem; color: var(--ink-soft); margin-bottom: 2px; }
@@ -490,6 +518,35 @@
 .vote-card.own { cursor: default; opacity: 0.75; }
 .vote-card.own .yours { display: block; }
 .vote-card.own .heart { display: none; }
+/* The drawings you gave a heart to: the heart is filled in */
+.hearts.mine path { fill: currentColor; }
+/* Save button in the corner of every picture in "All drawings" */
+.save-pic {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 1.2rem;
+  color: var(--ink);
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 50% 46% 52% 48%;
+  box-shadow: 1px 2px 0 var(--shadow);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.save-pic:hover { transform: rotate(-8deg) scale(1.08); background: var(--accent); color: var(--accent-ink); }
+.save-pic:active { transform: translate(1px, 1px); box-shadow: none; }
+.award-note { margin: -6px 0 14px; }
+/* Two avatars for a pair of drawers, the second one tucked half behind the first */
+.duo { display: inline-flex; align-items: center; flex: none; }
+.duo > span { display: inline-flex; }
+.duo > span + span { margin-left: -8px; }
+.waiting-avatar.duo > span + span { margin-left: -18px; }
 
 .results { align-items: stretch; }
 .results-title { margin: 0; text-align: center; font-weight: 400; font-size: clamp(1.8rem, 4vw, 2.6rem); transform: rotate(-1deg); }
@@ -656,12 +713,14 @@
   .vote-head p.muted { display: none; }
   .gallery-grid, .gallery-grid.small, .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .vote-card .heart { top: 12px; right: 12px; width: 34px; height: 34px; font-size: 1.15rem; }
+  .save-pic { top: 12px; right: 12px; width: 34px; height: 34px; font-size: 1.05rem; }
   .caption { font-size: 0.92rem; }
   .stat-who { font-size: 1.2rem; }
   .react-bar { right: 6px; bottom: 6px; padding: 2px 4px; }
   .react-bar button { font-size: 1.15rem; }
   .lobby { padding: 14px 4px 18px; gap: 22px; }
-  .settings-grid { grid-template-columns: 1fr; }
+  .settings-grid, .mode-picks { grid-template-columns: 1fr; }
+  .mode-picks { gap: 8px; }
   .chat-log { padding: 8px 10px 4px; font-size: 1.02rem; }
   .chat-form { padding: 6px; }
   .ov-card { padding: 14px; }

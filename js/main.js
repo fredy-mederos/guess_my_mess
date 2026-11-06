@@ -28,7 +28,7 @@ let net = null;
 let engine = null;
 let isHosting = false;
 let prevPhase = null;
-let prevDrawer = null;
+let prevTurn = '';
 let myProfile = null;     // { name, avatar }; also what a reconnect re-sends
 // ?debug in the address exposes the latest game state (read-only) for automated tests
 if (new URLSearchParams(location.search).has('debug')) window.__gmm = { state: () => st };
@@ -58,7 +58,7 @@ function toast(text, ms = 2200) {
 }
 
 // ---------- UI pieces ----------
-const board = createBoard($('#board'), { onEmit: (msg) => send({ t: 'd', ...msg }) });
+const board = createBoard($('#board'), { me: cid, onEmit: (msg) => send({ t: 'd', ...msg }) });
 const toolbar = createToolbar($('#toolbar'), board);
 const chat = createChat({ log: $('#chatLog'), form: $('#chatForm'), input: $('#chatInput') }, {
   onSend: (text) => send({ t: 'chat', text }),
@@ -140,7 +140,9 @@ function onMessage(msg) {
 }
 
 function render() {
-  const amDrawer = st.phase === 'drawing' && st.me === st.drawer;
+  // In pairs mode the partner draws too: same board, same tools
+  const myTurn = st.me === st.drawer || st.me === st.partner;
+  const amDrawer = st.phase === 'drawing' && myTurn;
   const me = st.players.find((p) => p.id === st.me);
   // One stage, four views: lobby, the board, the voting gallery, the results
   const view = { lobby: 'lobby', voting: 'vote', podium: 'results' }[st.phase] || 'play';
@@ -153,7 +155,9 @@ function render() {
   if (view === 'results') gallery.renderResults(st);
   if (me) meBtn.innerHTML = avatarSvg(me.avatar, 34);
 
-  if (st.drawer !== prevDrawer && st.me === st.drawer) toolbar.reset();
+  // A fresh pen for every turn you draw in
+  const turn = `${st.round}|${st.drawer}|${st.partner}`;
+  if (turn !== prevTurn && myTurn) toolbar.reset();
   board.setInteractive(amDrawer);
   $('#toolbar').hidden = !amDrawer;
   // On phones the drawer gets the whole screen: chat hides, every tool shows inline (CSS)
@@ -166,14 +170,14 @@ function render() {
         : 'Type your guess…');
 
   if (st.phase !== prevPhase) {
-    if (st.phase === 'choosing' && st.me === st.drawer) sfx.turn();
+    if (st.phase === 'choosing' && myTurn) sfx.turn();
     if (st.phase === 'drawing' && !amDrawer) chat.focus();
     if (st.phase === 'reveal') sfx.reveal();
     if (st.phase === 'voting') sfx.turn();
     if (st.phase === 'podium') sfx.win();
   }
   prevPhase = st.phase;
-  prevDrawer = st.drawer;
+  prevTurn = turn;
   fitLayout();
 }
 

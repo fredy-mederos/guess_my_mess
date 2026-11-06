@@ -134,6 +134,14 @@ export async function launch(name) {
         await viewport(w, h);
         await sleep(400);
       },
+      // Lets this player save files; resolves with the folder they land in (tests/out/<name>/downloads/<player>)
+      async allowDownloads() {
+        const dir = join(out, 'downloads', playerName);
+        rmSync(dir, { recursive: true, force: true });
+        mkdirSync(dir, { recursive: true });
+        await send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir, browserContextId });
+        return dir;
+      },
       // Saves a JPEG to tests/out/<name>/<file>, or to `file` when it's an absolute path
       async shot(file) {
         await s('Page.bringToFront');

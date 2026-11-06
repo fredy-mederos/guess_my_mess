@@ -36,7 +36,7 @@ export async function joinRoom(guest, invite, avatar) {
 }
 
 // The host fills in the lobby form like a person would, then waits until the room has the new
-// setup. Keys are the engine's setting names: rounds, drawTime, choices, hints, customWords…
+// setup. Keys are the engine's setting names: mode, rounds, drawTime, choices, hints, customWords…
 export async function setup(host, settings) {
   const want = JSON.stringify(settings);
   await host.eval(`(${fillSetup})(${want})`);
@@ -48,7 +48,11 @@ function fillSetup(settings) {
   const labels = { lang: 'Word pack', difficulty: 'Difficulty', rounds: 'Game length', drawTime: 'Drawing time', choices: 'Word choices', hints: 'Letter hints', customWords: 'Custom words' };
   const checks = { closeHints: 'Tell people when a guess is close', customOnly: 'Only use our custom words' };
   for (const [key, value] of Object.entries(settings)) {
-    if (checks[key]) {
+    if (key === 'mode') {
+      const card = document.querySelector(`#lobby .mode-pick input[value="${value}"]`);
+      card.checked = true;
+      card.dispatchEvent(new Event('change'));
+    } else if (checks[key]) {
       const box = [...document.querySelectorAll('#lobby label.check')].find((l) => l.textContent.includes(checks[key])).querySelector('input');
       box.checked = value;
       box.dispatchEvent(new Event('change'));

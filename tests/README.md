@@ -1,7 +1,7 @@
 # Tests
 
-End-to-end tests that play real games in headless Google Chrome, one isolated browser per player, plus a
-quick check of the word packs. Nothing to install: you need [Node.js](https://nodejs.org) 22 or newer and
+End-to-end tests that play real games in headless Google Chrome, one isolated browser per player, plus quick
+checks in plain Node (word packs, avatar parts, who draws when). Nothing to install: you need [Node.js](https://nodejs.org) 22 or newer and
 Google Chrome. Each test serves this checkout by itself, and players connect through the public PeerJS
 server, so you need an internet connection.
 
@@ -18,7 +18,10 @@ This runs every `tests/*.test.mjs` file at once, in about a minute:
 | File | What it checks |
 | --- | --- |
 | `words.test.mjs` | Word packs (tidy, no word twice) and guess matching, without a browser |
-| `game.test.mjs` | A 3-player game on laptops and a phone: a character change mid-room, three turns (with undo and redo), the vote and the results |
+| `avatar.test.mjs` | Avatar parts, without a browser: saved characters keep their look, every part draws clean SVG |
+| `turns.test.mjs` | The engine on a fake clock, without a browser: pairs rotation, odd player counts, shared strokes, points and hearts |
+| `game.test.mjs` | A 3-player game on laptops and a phone: a character change mid-room, three turns (with undo and redo), the vote, the results and saving a drawing |
+| `pairs.test.mjs` | A 4-player Pairs game: two players drawing at once on every screen, undo and redo per drawer, points, votes and awards for both |
 | `phone.test.mjs` | The phone layout: guess box above the keyboard, aligned reveal scores, full-width board for the drawer |
 | `hints.test.mjs` | Letter blanks for a six-word phrase, and hint letters showing up in the right places |
 | `join.test.mjs` | Joining when things go wrong: a host away for a moment, a room that's gone, devices that can't connect |

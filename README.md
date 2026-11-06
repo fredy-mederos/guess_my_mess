@@ -19,17 +19,20 @@ Share a link, play in the browser, no accounts and no server.
 
 ## How to play
 
-1. **Make your doodle.** Open the game, build a character (color, eyes, mouth, hat) and pick a name.
+1. **Make your doodle.** Open the game, build a character (color, body shape, eyes, mouth, hat and outfit) and
+   pick a name.
 2. **Create a room** and hit **Copy link**. Paste it in your team chat; everyone who opens it joins your room.
-3. **Set up the game** (host): word pack language, difficulty, rounds, drawing time and your own team words.
+3. **Set up the game** (host): Classic or Pairs mode, word pack language, difficulty, rounds, drawing time and
+   your own team words.
 4. **Take turns.** The drawer picks one of a few words and draws it. Everyone else types guesses in the chat.
    Faster guesses score more, and the drawer earns points for every player who gets it
-   ([how points work](#how-points-work)).
+   ([how points work](#how-points-work)). In **Pairs** mode two players draw each word together on the same
+   board: one of them picks it, then both draw at the same time and both earn the drawer's points.
 5. **Vote for the best drawing.** After the last round, every drawing goes up in a gallery and everyone hands
    out hearts: one per round played, up to 3 (not to their own drawings, of course).
 6. **Two winners.** The points podium crowns the best guesser, the most-hearted drawing wins Best drawing, and a
    wall of fun stats celebrates the rest: easiest and hardest word, fastest guess, the minimalist who needed just
-   two lines, and more.
+   two lines, and more. Tap the arrow on any drawing in the gallery to save it.
 
 ### How points work
 
@@ -37,7 +40,7 @@ Share a link, play in the browser, no accounts and no server.
 | --- | --- | --- |
 | You guess the word | You | **100**, plus up to **400** for speed: 400 × the share of the drawing time still left |
 | You're the first to guess it this turn | You | **+50** on top |
-| Someone guesses your drawing | The drawer | **+75** for every player who gets it |
+| Someone guesses your drawing | The drawer (both of them, in Pairs mode) | **+75** for every player who gets it |
 | A wrong guess, or a "so close!" one | Nobody | 0, and no penalty: guess as often as you like |
 | Letter hints show up | Nobody | 0: hints never cost or change points, they only make the word easier as time runs out |
 | Hearts in the best-drawing vote | Nobody | 0: hearts pick Best drawing, not the points winner |
@@ -63,7 +66,10 @@ Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75
 - **Word packs**: 600 hand-picked words each in English, Español, Deutsch, Português and Français (easy, medium
   and hard: objects, animals, food, jobs, idioms and some office and car life). The host's device remembers recent
   words, so they don't come back in the next games.
-- **Game setup**: word pack language; easy / mixed / medium / hard; 1 to 10 rounds;
+- **Pairs mode**: two players draw the same word at once on one board, each with their own tools and their own
+  undo and redo. Pairs rotate so everyone draws once per round with as many different partners as possible (with an odd
+  number of players, one player draws twice). Needs 3 players or more; with 2 it plays like Classic.
+- **Game setup**: Classic or Pairs; word pack language; easy / mixed / medium / hard; 1 to 10 rounds;
   30 to 240 second turns; pick from 1 to 5 words; letter hints; "you're close" hints; custom team words, mixed
   in or on their own.
 - **Drawing tools**: pen, marker, ink, spray, neon, rainbow, eraser and fill bucket; 24 colors plus a custom
@@ -73,11 +79,14 @@ Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75
   guessed can keep chatting without spoiling it.
 - **Scores and bragging rights**: points by speed with a first-guess bonus, a reveal after every turn, a podium
   with confetti and a hall of fame (wins and best-drawing awards) that persists on the host's device.
-- **Best drawing award**: a heart vote over every drawing of the game. The winners are shown big and can be saved
-  as full-size images. Drawings travel as strokes (vector data) and are redrawn on each device, so they stay crisp.
+- **Best drawing award**: a heart vote over every drawing of the game. The winners are shown big, and every drawing
+  in the gallery can be saved as a full-size image. Drawings travel as strokes (vector data) and are redrawn on each
+  device, so they stay crisp.
 - **Fun stats**: easiest / hardest word, fastest guess, sharpest eye, minimalist, most detailed, most colorful,
   second thoughts (undos), so close and wild guesser.
-- **Change your look any time**: tap your avatar in the top bar to edit your character or name mid-game.
+- **Doodle characters**: 24 colors, 11 body shapes (blob, egg, ghost, cat, bunny, horns…), 14 eyes, 14 mouths,
+  19 hats (wizard, viking, propeller, unicorn horn…) and 12 outfits (bow tie, scarf, cape, medal…), or roll the
+  dice. Tap your avatar in the top bar to change your look or name any time, even mid-game.
 - **Made for phones too**: on a phone the drawer gets the whole screen (chat tucks away, all tools in reach,
   latest guesses shown under the palette).
 - **Hand-drawn look**: notebook paper in light mode, chalkboard in dark mode, reactions and sound effects.
@@ -167,9 +176,10 @@ Wi-Fi. Create the room from the network-IP address so the invite link works on t
 node --test
 ```
 
-Plays real games in headless Chrome: a full 3-player game, the phone layout, the letter hints and joining when
-something goes wrong, plus a check of the word packs. All it needs is Node.js 22+ and Google Chrome. There's also
-a 20-player stress test and a script that retakes the screenshots above; see [tests/README.md](tests/README.md).
+Plays real games in headless Chrome: a full 3-player game, a 4-player Pairs game, the phone layout, the letter
+hints and joining when something goes wrong, plus quick checks of the word packs, the avatar parts and the pairs
+rotation. All it needs is Node.js 22+ and Google Chrome. There's also a 20-player stress test and a script that
+retakes the screenshots above; see [tests/README.md](tests/README.md).
 
 ## Releasing
 

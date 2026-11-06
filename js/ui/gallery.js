@@ -1,14 +1,25 @@
 // End of game: a gallery of every drawing to hand out hearts, then the results with two
-// awards: most points (podium) and best drawing (most hearts), plus all drawings with counts.
+// awards: most points (podium) and best drawing (most hearts), plus all drawings with counts,
+// each one ready to save.
 import { h, $$ } from '../util.js';
 import { avatarSvg } from '../avatar.js';
 import { icon, medal } from '../icons.js';
 import { renderDrawing } from '../board.js';
 
 const av = (a, size) => h('span', { html: avatarSvg(a, size) });
-const byLine = (d) => [av(d.avatar, 26), h('span.by', d.name), h('span.word', `“${d.word}”`)];
+// A drawing made in pairs shows both artists, side by side
+const artists = (d, size) => (d.partnerAvatar ? h('span.duo', av(d.avatar, size), av(d.partnerAvatar, size)) : av(d.avatar, size));
+const byLine = (d) => [artists(d, 26), h('span.by', d.name), h('span.word', `“${d.word}”`)];
 // The image may still be rendering; it's filled in by data-drawing id once ready
 const pic = (d) => h('img', { src: d.url || '', alt: `${d.name}'s drawing of ${d.word}`, dataset: { drawing: d.id } });
+const isOwn = (d, id) => d.drawer === id || d.partner === id;
+// Heart count; filled in on the drawings you gave a heart to, so your favorites are easy to spot
+const hearts = (st, d) => {
+  const mine = st.myVotes.includes(d.id);
+  return h(`span.hearts${mine ? '.mine' : ''}`, { title: mine ? 'You gave this one a heart' : null }, icon('heart'), ` ${st.tally[d.id] || 0}`);
+};
+// "rubber duck" by "Ana & Sam" → rubber-duck-by-Ana-Sam.png
+const fileName = (d) => `${d.word}-by-${d.name}`.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') + '.png';
 
 export function createGallery(els, { onVote, onDone, onShowResults, onPlayAgain, onLobby }) {
   const drawings = new Map();       // id -> { id, drawer, name, avatar, word, ops, bg, url }
@@ -47,7 +58,7 @@ export function createGallery(els, { onVote, onDone, onShowResults, onPlayAgain,
     const mine = new Set(st.myVotes);
     const left = st.maxVotes - mine.size;
     for (const [id, card] of cards) {
-      const own = drawings.get(id).drawer === st.me;
+      const own = isOwn(drawings.get(id), st.me);
       card.classList.toggle('own', own);
       card.classList.toggle('voted', mine.has(id));
       card.disabled = own;
@@ -82,18 +93,23 @@ export function createGallery(els, { onVote, onDone, onShowResults, onPlayAgain,
       pic(d),
       h('figcaption',
         h('span.caption', byLine(d)),
-        h('span.hearts', icon('heart'), ` ${st.tally[d.id] || 0}`),
+        hearts(st, d),
         h('button.btn.small', { type: 'button', onclick: () => save(d) }, icon('download'), 'Save')))));
   }
 
   // Full-size PNG, rendered on this device from the strokes
   function save(d) {
     if (!d.url) return;
-    const a = h('a', { href: d.url, download: `${d.word.replace(/[^\p{L}\p{N}]+/gu, '-')}-by-${d.name}.png` });
+    const a = h('a', { href: d.url, download: fileName(d) });
     document.body.append(a);
     a.click();
     a.remove();
   }
+
+  // The little save button in the corner of every picture in "All drawings"
+  const saveBtn = (d) => h('button.save-pic', {
+    type: 'button', title: 'Save this drawing', 'aria-label': `Save “${d.word}” by ${d.name}`, onclick: () => save(d),
+  }, icon('download'));
 
   // Fun stats as a wall of sticky notes
   function statNotes(st) {
@@ -123,9 +139,11 @@ export function createGallery(els, { onVote, onDone, onShowResults, onPlayAgain,
         statNotes(st)) : null,
       all.length ? h('section.card.award',
         h('h3', h('span.marker', 'All drawings')),
+        h('p.muted.award-note', icon('download'), ' Tap the arrow on any drawing to save it.'),
         h('div.gallery-grid.small', all.map((d) => h('figure.gallery-card',
           pic(d),
-          h('figcaption.caption', byLine(d), h('span.hearts', icon('heart'), ` ${st.tally[d.id] || 0}`)))))) : null,
+          saveBtn(d),
+          h('figcaption.caption', byLine(d), hearts(st, d)))))) : null,
       h('div.results-actions', amHost
         ? [h('button.btn.pink.big', { type: 'button', onclick: onPlayAgain }, 'Play again'),
           h('button.btn', { type: 'button', onclick: onLobby }, 'Change setup')]

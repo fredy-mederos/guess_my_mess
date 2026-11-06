@@ -12,6 +12,8 @@ const REASONS = {
   skipped: ['skip', 'Turn skipped'],
   left: ['door', 'The drawer left'],
 };
+// This turn's drawers: the drawer, plus their partner in pairs mode
+const drawsNow = (st, id) => id === st.drawer || id === st.partner;
 
 export function createGameUI(els, { onChoose, onReact, onKick }) {
   let overlayKey = '';
@@ -31,7 +33,7 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
     els.players.replaceChildren(
       h('h3.players-title', h('span.marker', `Players (${st.players.filter((p) => p.online).length})`)),
       ...list.map((p, i) => {
-        const drawing = inGame && p.id === st.drawer && st.phase !== 'podium';
+        const drawing = inGame && drawsNow(st, p.id) && st.phase !== 'podium';
         // A check means "guessed it" during turns and "done voting" in the gallery
         const done = st.phase === 'voting' ? p.voted : ['drawing', 'reveal'].includes(st.phase) && p.guessed;
         const badge = drawing ? icon('pencil') : done ? icon('check') : p.id === st.host ? icon('crown') : '';
@@ -63,7 +65,10 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
 
   function renderTop(st) {
     const drawer = st.players.find((p) => p.id === st.drawer);
+    const partner = st.players.find((p) => p.id === st.partner);
     const me = st.players.find((p) => p.id === st.me);
+    // Who you're drawing with, in pairs mode
+    const mate = st.me === st.drawer ? partner : st.me === st.partner ? drawer : null;
     // Long form on big screens, "1/3" on phones (see .wide-only / .narrow-only)
     const r = Math.min(st.round, st.settings.rounds);
     els.roundInfo.replaceChildren(...(st.phase === 'lobby' ? ['Lobby']
@@ -74,7 +79,7 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
     let hint;
     if (st.phase === 'lobby') hint = [h('small', 'waiting room'), h('span.known', 'Get your pencils ready')];
     else if (st.phase === 'choosing') hint = [h('small', ' '), h('span.known', st.me === st.drawer ? 'Pick a word!' : `${drawer?.name || '…'} is choosing`)];
-    else if (st.phase === 'drawing' && st.me === st.drawer) hint = [h('small', 'draw this'), h('span.known', st.word)];
+    else if (st.phase === 'drawing' && drawsNow(st, st.me)) hint = [h('small', mate ? `draw this with ${mate.name}` : 'draw this'), h('span.known', st.word)];
     else if (st.phase === 'drawing' && me?.guessed) hint = [h('small', 'you got it!'), h('span.known', st.word)];
     else if (st.phase === 'drawing') {
       const letters = [...st.hint].filter((c) => /[\p{L}\p{N}_]/u.test(c)).length;
@@ -109,18 +114,31 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
 
   // ---------- overlays ----------
   function renderOverlay(st) {
-    const key = [st.phase, st.round, st.drawer, st.choices?.join(), st.results?.word, st.final?.length, st.me === st.host].join('|');
+    const key = [st.phase, st.round, st.drawer, st.partner, st.choices?.join(), st.results?.word, st.final?.length, st.me === st.host].join('|');
     if (key === overlayKey) return;
     overlayKey = key;
     const drawer = st.players.find((p) => p.id === st.drawer);
+    const partner = st.players.find((p) => p.id === st.partner);
+    const duo = () => h('div.waiting-avatar.duo.wiggle', av(drawer?.avatar, 84), av(partner?.avatar, 84));
     let card = null;
 
     if (st.phase === 'choosing' && st.choices) {
       card = h('div.ov-card.card.tape',
         h('h2', 'Pick a word to draw'),
+        partner ? h('p.pair-note', av(partner.avatar, 30), `${partner.name} draws it with you, on the same board`) : null,
         h('div.word-choices', st.choices.map((w, i) =>
           h('button.btn.primary.big', { type: 'button', onclick: () => onChoose(i) }, w))),
         h('p.muted', 'Others will see blanks for each letter. Don’t write the word!'));
+    } else if (st.phase === 'choosing' && partner && st.me === st.partner) {
+      card = h('div.ov-card.card.tape',
+        duo(),
+        h('h2', `You’re drawing with ${drawer?.name || 'a partner'}!`),
+        h('p.muted', `${drawer?.name || 'They'} is picking the word. Then you both draw it at the same time.`));
+    } else if (st.phase === 'choosing' && partner) {
+      card = h('div.ov-card.card',
+        duo(),
+        h('h2', `${drawer?.name || 'Someone'} & ${partner.name} are drawing together`),
+        h('p.muted', `${drawer?.name || 'One of them'} is picking a word… get ready to guess!`));
     } else if (st.phase === 'choosing') {
       card = h('div.ov-card.card',
         h('div.waiting-avatar.wiggle', av(drawer?.avatar, 96)),
@@ -128,7 +146,7 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
         h('p.muted', 'Get ready to guess in the chat!'));
     } else if (st.phase === 'reveal' && st.results) {
       const r = st.results;
-      const [reasonIcon, reasonText] = REASONS[r.reason] || [];
+      const [reasonIcon, reasonText] = r.reason === 'left' && r.partner ? ['door', 'The drawers left'] : REASONS[r.reason] || [];
       const rows = st.players
         .filter((p) => p.online || r.pts[p.id])
         .sort((a, b) => (r.pts[b.id] || 0) - (r.pts[a.id] || 0));
@@ -140,7 +158,7 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
         h('ul.gains', rows.map((p) => h('li',
           r.pts[p.id] ? h('span.plus', `+${r.pts[p.id]}`) : h('span.plus.zero', '+0'),
           av(p.avatar, 28),
-          h('span.who', p.name, p.id === r.drawer ? [' ', icon('pencil')] : null)))));
+          h('span.who', p.name, p.id === r.drawer || p.id === r.partner ? [' ', icon('pencil')] : null)))));
     }
 
     els.overlay.hidden = !card;
@@ -169,7 +187,7 @@ export function createGameUI(els, { onChoose, onReact, onKick }) {
       renderPlayers(st);
       renderTop(st);
       renderOverlay(st);
-      els.reactBar.hidden = !(st.phase === 'drawing' && st.me !== st.drawer);
+      els.reactBar.hidden = !(st.phase === 'drawing' && !drawsNow(st, st.me));
     },
     showReaction,
     showTicker,

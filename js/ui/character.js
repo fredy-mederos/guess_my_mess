@@ -4,7 +4,8 @@ import { h } from '../util.js';
 import { PARTS, avatarSvg, randomAvatar, sanitizeAvatar } from '../avatar.js';
 import { icon } from '../icons.js';
 
-const PART_LABELS = { c: 'Color', e: 'Eyes', m: 'Mouth', h: 'Hat' };
+// Picker order: two columns, so color & shape, eyes & mouth, hat & outfit share a row
+const PART_LABELS = { c: 'Color', s: 'Shape', e: 'Eyes', m: 'Mouth', h: 'Hat', o: 'Outfit' };
 
 // onChange (optional) fires on every tweak, so a half-designed character isn't lost on a reload
 export function characterEditor({ avatar, name, onEnter, onChange }) {
@@ -52,7 +53,7 @@ export function characterEditor({ avatar, name, onEnter, onChange }) {
   }, icon('dice'));
 
   // Build the pickers first: they register the labels that update() fills in
-  const nodes = [h('div.avatar-stage', h('span'), preview, dice), h('div.part-grid', part('c'), part('e'), part('m'), part('h')), nameInput];
+  const nodes = [h('div.avatar-stage', h('span'), preview, dice), h('div.part-grid', Object.keys(PART_LABELS).map(part)), nameInput];
   update(false);
   return { nodes, nameInput, profile };
 }

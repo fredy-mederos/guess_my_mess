@@ -9,6 +9,11 @@ import { issueLink } from './issue-link.js';
 const DIFFICULTY = { easy: 'Easy peasy', mixed: 'Mixed bag', medium: 'Medium', hard: 'Hard mode' };
 const TIMES = [30, 45, 60, 80, 100, 120, 150, 180, 240];
 const HINTS = ['Off', 'A few', 'Lots'];
+// [value, title, what it means, icon]
+const MODES = [
+  ['classic', 'Classic', 'One player draws, everyone else guesses', 'pencil'],
+  ['pairs', 'Pairs', 'Two draw the same word together; one of them picks it', 'pair'],
+];
 
 const options = (pairs) => pairs.map(([v, label]) => h('option', { value: v }, label));
 
@@ -29,6 +34,12 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
     }),
     customOnly: h('input', { type: 'checkbox' }),
   };
+  // Game mode: two big radio cards, so the choice and what it means are easy to see
+  const modes = MODES.map(([value, title, about, ic]) => {
+    const input = h('input', { type: 'radio', name: 'mode', value, onchange: () => { showMode(); send(); } });
+    return { value, input, el: h('label.mode-pick', input, h('span.mode-icon', icon(ic)), h('span.mode-text', h('b', title), h('small', about))) };
+  });
+  const showMode = () => modes.forEach((m) => m.el.classList.toggle('sel', m.input.checked));
   const customCount = h('span.muted');
   // The room code at the end is what matters, so the middle of the address gets trimmed instead
   const linkStart = h('span.link-start');
@@ -45,6 +56,7 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
 
   function collect() {
     return {
+      mode: modes.find((m) => m.input.checked)?.value || 'classic',
       lang: f.lang.value,
       difficulty: f.difficulty.value,
       rounds: +f.rounds.value,
@@ -76,6 +88,7 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
     ),
     h('section.card',
       h('h3', h('span.marker', 'Game setup')),
+      h('div.mode-picks', { role: 'radiogroup', 'aria-label': 'Game mode' }, modes.map((m) => m.el)),
       h('div.settings-grid',
         setting('Word pack', f.lang),
         setting('Difficulty', f.difficulty),
@@ -114,6 +127,12 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
         if (el.type === 'checkbox') el.checked = !!st.settings[key];
         else el.value = String(st.settings[key]);
       }
+      for (const m of modes) {
+        m.input.disabled = !host;
+        m.input.checked = st.settings.mode === m.value;
+        m.el.classList.toggle('locked', !host);
+      }
+      showMode();
       customCount.textContent = `${parseCustomWords(st.settings.customWords).length} custom words`;
       hallReset.hidden = !host || !st.hall.length;
 
@@ -121,8 +140,10 @@ export function createLobby(root, { onSettings, onStart, onCopy, onResetHall }) 
       const hostName = st.players.find((p) => p.id === st.host)?.name || 'the host';
       startBtn.hidden = !host;
       startBtn.disabled = onlineCount < 2;
+      // Pairs need a third player to guess; with two, the game falls back to one drawer
+      const pairsNote = st.settings.mode === 'pairs' && onlineCount === 2 ? [h('small.pairs-note', 'Pairs need 3 players or more: with 2, you take turns alone')] : [];
       startNote.replaceChildren(...(!host ? [h('span.wiggle', { style: { display: 'inline-block' } }, icon('pencil')), ` Waiting for ${hostName} to start…`]
-        : [onlineCount < 2 ? 'Waiting for at least one more player…' : `${onlineCount} players ready`]));
+        : [onlineCount < 2 ? 'Waiting for at least one more player…' : `${onlineCount} players ready`]), ...pairsNote);
 
       hallBody.replaceChildren(...(st.hall.length
         ? st.hall.map((r, i) => h('tr',

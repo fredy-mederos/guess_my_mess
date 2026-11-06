@@ -1,7 +1,10 @@
 // A whole game for three players, two on laptops and one on a phone: a character change
-// mid-room, three turns of drawing and guessing, the best-drawing vote and the results.
+// mid-room, three turns of drawing and guessing, the best-drawing vote, the results and
+// saving a drawing.
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { launch, sleep, DESKTOP, PHONE } from './lib/browser.mjs';
 import { site } from './lib/server.mjs';
 import { story, createRoom, joinRoom, setup } from './lib/game.mjs';
@@ -36,6 +39,13 @@ step('three players meet in a room', async () => {
 step('a player changes name and doodle mid-room', async () => {
   await sam.eval(`document.querySelector('#meBtn').click(); true`);
   await sam.waitFor(`!!document.querySelector('.modal')`);
+  const pickers = await sam.eval(`[...document.querySelectorAll('.modal .part b')].map((b) => b.textContent)`);
+  assert.deepEqual(pickers, ['Color', 'Shape', 'Eyes', 'Mouth', 'Hat', 'Outfit']);
+  // A bunny with a scarf: the next shape and outfit arrows step through the parts, then the dice re-rolls everything
+  const step = (label, times) => sam.eval(`(() => { for (let i = 0; i < ${times}; i++) document.querySelector('.modal button[aria-label="Next ${label}"]').click();
+    return document.querySelector('.modal button[aria-label="Next ${label}"]').previousElementSibling.textContent; })()`);
+  assert.equal(await step('Shape', 9), 'ShapeBunny');
+  assert.equal(await step('Outfit', 3), 'OutfitScarf');
   await sam.shot('edit-character.jpg');
   await sam.eval(`(() => {
     document.querySelector('.modal input').value = 'Samuel';
@@ -44,6 +54,10 @@ step('a player changes name and doodle mid-room', async () => {
     return true; })()`);
   await fredy.waitFor(`[...document.querySelectorAll('#players .name')].some((n) => n.textContent === 'Samuel')`, 5000);
   await fredy.waitFor(`__d.chatHas('Sam is now Samuel')`, 5000);
+  // The new look, shape and outfit included, is what everyone else sees
+  const saved = await sam.eval(`JSON.parse(localStorage.getItem('gmm:avatar'))`);
+  assert.deepEqual(Object.keys(saved).sort(), ['c', 'e', 'h', 'm', 'o', 's']);
+  assert.deepEqual(await fredy.eval(`__gmm.state().players.find((p) => p.name === 'Samuel').avatar`), saved);
 });
 
 step('the host sets up one round with three team words', () =>
@@ -159,6 +173,20 @@ step('results: points podium, best drawing and fun stats', async (t) => {
   await fredy.shot('results-desktop.jpg');
   await ana.resize(390, 1900);
   await ana.shot('results-phone.jpg');
+});
+
+step('results: every drawing can be saved as a full-size picture', async () => {
+  const cards = await fredy.eval(`[...document.querySelectorAll('#results .gallery-card')].map((c) => ({
+    word: c.querySelector('.word').textContent, save: !!c.querySelector('button.save-pic'), mine: !!c.querySelector('.hearts.mine') }))`);
+  assert.deepEqual(cards.map((c) => c.save), [true, true, true], 'a save button on every drawing');
+  assert.deepEqual(cards.filter((c) => c.mine).map((c) => c.word), ['“sunflower”'], 'the drawing Fredy gave a heart to is marked');
+  const dir = await ana.allowDownloads();
+  await ana.eval(`[...document.querySelectorAll('#results .gallery-card')].find((c) => c.querySelector('.word').textContent === '“robot”').querySelector('.save-pic').click(); true`);
+  const file = join(dir, 'robot-by-Samuel.png');
+  for (let i = 0; i < 50 && !existsSync(file); i++) await sleep(200);
+  const png = readFileSync(file);
+  assert.equal(png.toString('latin1', 1, 4), 'PNG');
+  assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1200, 900], 'full size');
 });
 
 step('back in the lobby, the hall of fame counts the game', async () => {

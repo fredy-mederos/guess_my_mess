@@ -27,6 +27,17 @@ export function driver() {
     el.dispatchEvent(pointer('pointerup', ...pts.at(-1)));
   };
   const curve = (fn, n = 60) => path(Array.from({ length: n }, (_, i) => fn(i / (n - 1))));
+  // The same, drawn the way a hand does it: a point every few ms, so two drawers' strokes really overlap in time
+  const slowCurve = async (fn, n = 40, ms = 20) => {
+    const el = live();
+    el.dispatchEvent(pointer('pointerdown', ...fn(0)));
+    for (let i = 1; i < n; i++) {
+      await new Promise((r) => setTimeout(r, ms));
+      el.dispatchEvent(pointer('pointermove', ...fn(i / (n - 1))));
+    }
+    el.dispatchEvent(pointer('pointerup', ...fn(1)));
+    return true;
+  };
   const brush = (name) => document.querySelector(`.pop-tools .tool-pick[data-brush="${name}"]`).click();
   const tool = (kind) => document.querySelector(`.pop-tools .tool-pick[data-kind="${kind}"]`).click();
   const color = (c) => document.querySelector(`.pop-colors .swatch[data-color="${c}"]`).click();
@@ -91,14 +102,16 @@ export function driver() {
     observer.observe(document.querySelector('#chatLog'), { childList: true });
     say(word);
   });
-  // Inked pixels on the board, to compare the same drawing across screens
-  const inkCount = () => {
+  // Inked pixels on the board (or in part of it, in board coordinates), to compare the same
+  // drawing across screens
+  const inkCount = (x0 = 0, y0 = 0, x1 = 1, y1 = 1) => {
     const c = document.querySelector('.board canvas.layer:not(.live)');
-    const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    const [x, y] = [Math.round(x0 * c.width), Math.round(y0 * c.height)];
+    const px = c.getContext('2d').getImageData(x, y, Math.round(x1 * c.width) - x, Math.round(y1 * c.height) - y).data;
     let n = 0;
     for (let i = 3; i < px.length; i += 4) if (px[i]) n++;
     return n;
   };
 
-  window.__d = { path, curve, brush, tool, color, paper, size, undo, redo, ctrl, shape, click, say, pickWord, react, chatHas, timedGuess, inkCount };
+  window.__d = { path, curve, slowCurve, brush, tool, color, paper, size, undo, redo, ctrl, shape, click, say, pickWord, react, chatHas, timedGuess, inkCount };
 }

@@ -1,11 +1,13 @@
 // The drawing board. Drawings are lists of "ops" in 0..1 coordinates, so they render the
 // same on a phone and a 4K screen. The drawer's ops stream out as they happen; everyone
-// else replays them. Undo simply drops the last op and replays the rest; redo puts it back.
+// else replays them. Undo drops the drawer's latest op and replays the rest; redo puts it back.
+// In pairs mode two people draw on it at once, so every op says who made it (u), and undo and
+// redo only touch your own.
 //
-//   stroke: { k: 's', id, b: brush, c: color, w: width, p: [x, y, x, y, ...] }
-//   fill:   { k: 'f', id, x, y, c }
-//   clear:  { k: 'c', id }
-import { seeded } from './util.js';
+//   stroke: { k: 's', id, u: player, b: brush, c: color, w: width, p: [x, y, x, y, ...] }
+//   fill:   { k: 'f', id, u, x, y, c }
+//   clear:  { k: 'c', id, u }
+import { seeded, randomId } from './util.js';
 
 export const W = 1200;
 export const H = 900;
@@ -220,7 +222,8 @@ export function renderDrawing(drawingOps, paper) {
   return new Promise((resolve) => out.toBlob((blob) => resolve(blob ? URL.createObjectURL(blob) : ''), 'image/png'));
 }
 
-export function createBoard(root, { onEmit }) {
+// `me` is this player's id: it marks the ops drawn here, the ones undo can take back
+export function createBoard(root, { onEmit, me = '' }) {
   const main = document.createElement('canvas');
   const live = document.createElement('canvas');
   const cursor = document.createElement('div');
@@ -237,11 +240,12 @@ export function createBoard(root, { onEmit }) {
   let undone = [];         // ops taken back by undo, newest last, until something new is drawn
   let onHistory = null;    // the toolbar, which greys out Undo / Redo when they'd do nothing
   let bg = '#ffffff';
-  let liveOp = null;       // translucent stroke currently being drawn (by anyone)
+  const lives = new Set(); // translucent strokes being drawn right now (by anyone: a pair draws two at once)
   let liveFrame = 0;
   let interactive = false;
   const tool = { kind: 'brush', brush: 'pen', color: '#2b2533', size: 8 }; // kind: 'brush' | 'fill'
-  const historyChanged = () => onHistory?.(ops.length > 0, undone.length > 0);
+  // Undo only takes back your own ops, so a partner's strokes alone leave it greyed out
+  const historyChanged = () => onHistory?.(ops.some((o) => o.u === me), undone.length > 0);
 
   // ---------- rendering ----------
   function setBg(c) {
@@ -249,24 +253,37 @@ export function createBoard(root, { onEmit }) {
     root.style.setProperty('--board-bg', c);
   }
 
+  // Strokes still in progress sit on the live layer; they land on the main one when they end
   function replay() {
     ctx.clearRect(0, 0, W, H);
-    for (const op of ops) renderOp(ctx, op);
+    for (const op of ops) if (!lives.has(op)) renderOp(ctx, op);
+  }
+
+  function paintLive() {
+    lctx.clearRect(0, 0, W, H);
+    for (const op of lives) drawLive(lctx, op);
   }
 
   function redrawLive() {
     if (liveFrame) return;
     liveFrame = requestAnimationFrame(() => {
       liveFrame = 0;
-      lctx.clearRect(0, 0, W, H);
-      if (liveOp) drawLive(lctx, liveOp);
+      paintLive();
     });
   }
 
   function commitLive(op) {
-    if (liveOp === op) liveOp = null;
-    lctx.clearRect(0, 0, W, H);
+    lives.delete(op);
+    paintLive();
     drawLive(ctx, op);
+  }
+
+  // Takes an op off the board (undo), wherever it is in the list
+  function remove(i) {
+    const [op] = ops.splice(i, 1);
+    if (lives.delete(op)) paintLive();
+    replay();
+    return op;
   }
 
   // ---------- remote ops ----------
@@ -276,25 +293,30 @@ export function createBoard(root, { onEmit }) {
       case 'begin': {
         const op = { ...msg.op, p: [...msg.op.p] };
         ops.push(op);
-        if (BRUSHES[op.b]?.mode === 'live') { liveOp = op; redrawLive(); } else renderOp(ctx, op);
+        if (BRUSHES[op.b]?.mode === 'live') { lives.add(op); redrawLive(); } else renderOp(ctx, op);
         break;
       }
       case 'pts': {
         const op = find(msg.id);
-        if (!op) return;
+        if (!op?.p) return;
         const from = count(op);
         op.p.push(...msg.p);
-        if (BRUSHES[op.b]?.mode === 'live') { if (op === liveOp) redrawLive(); } else for (let i = from; i < count(op); i++) segment(ctx, op, i);
+        if (BRUSHES[op.b]?.mode === 'live') { if (lives.has(op)) redrawLive(); } else for (let i = from; i < count(op); i++) segment(ctx, op, i);
         break;
       }
       case 'end': {
         const op = find(msg.id);
-        if (op && op === liveOp) commitLive(op);
+        if (op && lives.has(op)) commitLive(op);
         break;
       }
       case 'op': ops.push(msg.op); renderOp(ctx, msg.op); break;
       case 'ops': for (const op of msg.ops) { ops.push(op); renderOp(ctx, op); } break;
-      case 'undo': ops.pop(); liveOp = null; lctx.clearRect(0, 0, W, H); replay(); break;
+      case 'undo': {
+        // The host names the op to take back; older hosts don't, and mean the latest one
+        const i = msg.id == null ? ops.length - 1 : ops.findLastIndex((o) => o.id === msg.id);
+        if (i >= 0) remove(i);
+        break;
+      }
       case 'clear': ops = []; replay(); break;
       case 'bg': setBg(msg.c); break;
     }
@@ -304,7 +326,7 @@ export function createBoard(root, { onEmit }) {
   function reset(newBg = '#ffffff') {
     ops = [];
     undone = [];
-    liveOp = null;
+    lives.clear();
     lctx.clearRect(0, 0, W, H);
     ctx.clearRect(0, 0, W, H);
     setBg(newBg);
@@ -315,7 +337,9 @@ export function createBoard(root, { onEmit }) {
   let current = null;      // stroke in progress
   let pending = [];        // its points not yet sent
   let opSeq = 0;
-  const newId = () => Date.now().toString(36) + (opSeq++).toString(36);
+  // The random start keeps ids unique when two people draw in the same millisecond
+  const tag = randomId(4);
+  const newId = () => tag + Date.now().toString(36) + (opSeq++).toString(36);
 
   // Something new from the drawer: what they undid before can't be redone any more
   function addOp(op) {
@@ -343,15 +367,15 @@ export function createBoard(root, { onEmit }) {
     try { live.setPointerCapture(e.pointerId); } catch {} // keeps the stroke going if the finger leaves the board
     const p = toNorm(e);
     if (tool.kind === 'fill') {
-      const op = { k: 'f', id: newId(), x: p[0], y: p[1], c: tool.color };
+      const op = { k: 'f', id: newId(), u: me, x: p[0], y: p[1], c: tool.color };
       addOp(op);
       renderOp(ctx, op);
       return onEmit({ a: 'op', op });
     }
-    current ={ k: 's', id: newId(), b: tool.brush, c: tool.color, w: tool.size, p: [...p] };
+    current = { k: 's', id: newId(), u: me, b: tool.brush, c: tool.color, w: tool.size, p: [...p] };
     addOp(current);
     pending = [];
-    if (BRUSHES[current.b].mode === 'live') { liveOp = current; redrawLive(); } else segment(ctx, current, 0);
+    if (BRUSHES[current.b].mode === 'live') { lives.add(current); redrawLive(); } else segment(ctx, current, 0);
     onEmit({ a: 'begin', op: { ...current, p: [...current.p] } });
   });
 
@@ -404,19 +428,23 @@ export function createBoard(root, { onEmit }) {
       root.classList.toggle('drawing', on);
       if (!on) { current = null; cursor.hidden = true; }
     },
+    // Takes back your own latest op; a partner's strokes stay put
     undo() {
       finish(); // a line still being drawn ends here, so it's undone (and redone) whole
-      if (!ops.length) return;
-      undone.push(ops.pop());
-      replay();
+      const i = ops.findLastIndex((o) => o.u === me);
+      if (i < 0) return;
+      const op = remove(i);
+      undone.push(op);
       historyChanged();
-      onEmit({ a: 'undo' });
+      onEmit({ a: 'undo', id: op.id });
     },
+    // Brings back your latest undo, on top of everything: a partner may have drawn since, and
+    // on the other screens it arrives as a new op, so it lands on top there too
     redo() {
       if (!undone.length) return;
       const op = undone.pop();
       ops.push(op);
-      renderOp(ctx, op); // nothing new was drawn since it was undone, so it goes right back on top
+      renderOp(ctx, op);
       historyChanged();
       // Everyone else just gets the op again, so the host and late joiners have it too
       onEmit({ a: 'op', op });
@@ -427,7 +455,7 @@ export function createBoard(root, { onEmit }) {
       historyChanged();
     },
     clear() {
-      const op = { k: 'c', id: newId() };
+      const op = { k: 'c', id: newId(), u: me };
       addOp(op);
       renderOp(ctx, op);
       onEmit({ a: 'op', op });
