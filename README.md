@@ -67,8 +67,9 @@ Bo guesses with 20 seconds left and gets 100 + 100 = **200**. The drawer gets 75
   and hard: objects, animals, food, jobs, idioms and some office and car life). The host's device remembers recent
   words, so they don't come back in the next games.
 - **Pairs mode**: two players draw the same word at once on one board, each with their own tools and their own
-  undo and redo. Pairs rotate so everyone draws once per round with as many different partners as possible (with an odd
-  number of players, one player draws twice). Needs 3 players or more; with 2 it plays like Classic.
+  undo and redo. Everyone draws once per round (with an odd number of players, one player draws twice), and each
+  round's pairs are planned together so partners repeat as little as possible: 6 players over 5 rounds draw with
+  everyone else exactly once. Needs 3 players or more; with 2 it plays like Classic.
 - **Game setup**: Classic or Pairs; word pack language; easy / mixed / medium / hard; 1 to 10 rounds;
   30 to 240 second turns; pick from 1 to 5 words; letter hints; "you're close" hints; custom team words, mixed
   in or on their own.
@@ -234,6 +235,7 @@ css/game.css        room layout, board, toolbar, chat, overlays, responsive rule
 js/main.js          boot and glue between network, engine and UI
 js/net.js           PeerJS transport: host star, heartbeats, reconnects
 js/engine.js        host-only game logic (the source of truth)
+js/pairing.js       who draws with whom in Pairs mode
 js/board.js         canvas, brushes, fill, undo by replay
 js/toolbar.js       the drawer's tools
 js/icons.js         hand-drawn line icons

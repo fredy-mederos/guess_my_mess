@@ -5,6 +5,7 @@
 import { sanitizeAvatar } from './avatar.js';
 import { pickChoices, LANGUAGES, DIFFICULTIES } from './words/index.js';
 import { normalize, levenshtein, clamp, pick, shuffle } from './util.js';
+import { planRound, leftoverPartner } from './pairing.js';
 
 // mode: 'classic' (one drawer per turn) or 'pairs' (two players draw the same word together)
 export const MODES = ['classic', 'pairs'];
@@ -239,20 +240,13 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
   // Pairs need someone left to guess: with two players it's one drawer at a time
   const pairsNow = () => S.settings.mode === 'pairs' && online().length >= 3;
 
-  // The drawer's partner: someone still waiting for their turn this round, preferably a new
-  // pairing. With an odd number of players the last one draws with someone who already drew
-  // this round (whoever drew with them least, then whoever has drawn least).
-  function pickPartner(lead) {
-    const together = (id) => S.pairs[pairKey(lead, id)] || 0;
-    const waiting = S.queue.filter((id) => id !== lead && player(id)?.online);
-    if (waiting.length) {
-      const id = minBy(waiting, together);
-      S.queue.splice(S.queue.indexOf(id), 1);
-      return id;
-    }
-    const others = shuffle(online().map((p) => p.id).filter((id) => id !== lead));
-    return minBy(others, (id) => together(id) * 1000 + (S.drawn[id] || 0));
-  }
+  // What the pairs planner goes by (see pairing.js)
+  const pairing = () => ({
+    everyone: online().map((p) => p.id),
+    together: (a, b) => S.pairs[pairKey(a, b)] || 0,
+    drawn: (id) => S.drawn[id] || 0,
+    lookahead: S.round < S.settings.rounds,
+  });
 
   function nextTurn() {
     let next = null;
@@ -261,15 +255,20 @@ export function createEngine({ hostId, sendTo, kick, saved, hall = {}, recent = 
         S.round++;
         // Last turn done: vote on the drawings first (needs at least two to choose from)
         if (S.round > S.settings.rounds) return S.gallery.length >= 2 ? startVoting() : endGame();
-        // Everyone draws once per round; in pairs the order is shuffled so partners change
+        // Everyone draws once per round (in pairs mode in a random order)
         S.queue = online().map((p) => p.id);
         if (S.settings.mode === 'pairs') S.queue = shuffle(S.queue);
       }
+      // In pairs the rest of the round is planned in one go, so partners repeat as little as
+      // possible: the queue goes pair by pair, and whoever is left over in an odd round goes last
+      if (pairsNow()) S.queue = planRound(S.queue.filter((id) => player(id)?.online), pairing());
       const id = S.queue.shift();
       if (player(id)?.online) next = id;
     }
     S.drawer = next;
-    S.partner = pairsNow() ? pickPartner(next) : null;
+    // The partner is next in line; the one left over in an odd round draws with someone who already drew
+    if (!pairsNow()) S.partner = null;
+    else S.partner = S.queue.length ? S.queue.shift() : leftoverPartner(next, pairing());
     if (S.partner) {
       // Of the two, whoever has picked fewer words so far picks this one
       if ((S.picks[S.partner] || 0) < (S.picks[S.drawer] || 0)) [S.drawer, S.partner] = [S.partner, S.drawer];

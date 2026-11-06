@@ -19,7 +19,7 @@ This runs every `tests/*.test.mjs` file at once, in about a minute:
 | --- | --- |
 | `words.test.mjs` | Word packs (tidy, no word twice) and guess matching, without a browser |
 | `avatar.test.mjs` | Avatar parts, without a browser: saved characters keep their look, every part draws clean SVG |
-| `turns.test.mjs` | The engine on a fake clock, without a browser: pairs rotation, odd player counts, shared strokes, points and hearts |
+| `turns.test.mjs` | The engine on a fake clock, without a browser: pairs rotation (no partner twice while there are new ones, 4 to 8 players), odd player counts, shared strokes, points and hearts |
 | `game.test.mjs` | A 3-player game on laptops and a phone: a character change mid-room, three turns (with undo and redo), the vote, the results and saving a drawing |
 | `pairs.test.mjs` | A 4-player Pairs game: two players drawing at once on every screen, undo and redo per drawer, points, votes and awards for both |
 | `phone.test.mjs` | The phone layout: guess box above the keyboard, aligned reveal scores, full-width board for the drawer |

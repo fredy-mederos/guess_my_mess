@@ -7,18 +7,26 @@ import { createEngine } from '../js/engine.js';
 const REVEAL_MS = 6000; // see js/engine.js
 const GRACE_MS = 8000;
 
+const fakeClock = () => mock.timers.enable({ apis: ['setInterval', 'Date'], now: 1_000_000 });
+
 // A room on a fake clock: the host is the first player. Cleaned up when the test ends.
 function room(t, names, settings) {
-  mock.timers.enable({ apis: ['setInterval', 'Date'], now: 1_000_000 });
+  fakeClock();
+  const r = openRoom(names, settings);
+  t.after(() => {
+    r.engine.destroy();
+    mock.timers.reset();
+  });
+  return r;
+}
+
+// A room, on whatever clock the test set up
+function openRoom(names, settings) {
   const inbox = new Map(names.map((id) => [id, []]));
   const engine = createEngine({ hostId: names[0], sendTo: (id, msg) => inbox.get(id)?.push(msg), kick() {} });
   for (const id of names) engine.handle(id, { t: 'hello', name: id });
   engine.handle(names[0], { t: 'settings', settings: { rounds: 3, ...settings } });
   const S = engine.snapshot();
-  t.after(() => {
-    engine.destroy();
-    mock.timers.reset();
-  });
   return {
     S,
     engine,
@@ -65,6 +73,28 @@ test('pairs: four players draw once per round, with a new partner every round', 
   const picks = Object.values(Object.groupBy(turns, (t) => t[1])).map((list) => list.length);
   assert.equal(picks.length, 4, 'everyone picks a word');
   assert.ok(Math.max(...picks) - Math.min(...picks) <= 1, `words picked per player: ${picks}`);
+});
+
+test('pairs: nobody draws with the same partner twice while there is someone new to draw with', (t) => {
+  fakeClock();
+  t.after(() => mock.timers.reset());
+  // Six players over five rounds is every possible pair exactly once. Picking one partner per
+  // turn used to leave the last two of a round together again in most of these games.
+  const names = ['ana', 'ben', 'cy', 'dee', 'eve', 'fay', 'gus', 'hal'];
+  for (const [players, rounds, games] of [[6, 5, 30], [8, 5, 15], [5, 3, 15], [7, 3, 15]]) {
+    const everyone = names.slice(0, players);
+    for (let game = 0; game < games; game++) {
+      const r = openRoom(everyone, { mode: 'pairs', rounds });
+      const turns = playThrough(r);
+      r.engine.destroy();
+      const pairs = turns.map(pairOf);
+      assert.equal(new Set(pairs).size, pairs.length, `${players} players, ${rounds} rounds: ${pairs.join(', ')}`);
+      for (let round = 1; round <= rounds; round++) {
+        const drew = turns.filter((t) => t[0] === round).flatMap((t) => [t[1], t[2]]);
+        assert.deepEqual([...new Set(drew)].sort(), everyone, `${players} players, round ${round}: everyone draws`);
+      }
+    }
+  }
 });
 
 test('pairs: with an odd number, the last player draws with someone who already drew', (t) => {
